@@ -1,7 +1,7 @@
 class DefaultConfig(object):
 
     data_params = {
-        "dataset_root": r'augmented_data_root',
+        "dataset_root": '/mnt/nas4/diskm/wangxh/CTCA_handover_26_allbranch_02to04mm_revise4_disk4/dataset/train_geo_02mm_clean/',
         "eos_coef": 0.2,
         "train_ratio": 0.8,
         "window_lw": [300, 900],
