@@ -1,0 +1,9 @@
+conda create -n STCN python=3.9 -y
+conda activate STCN
+conda install pytorch==1.12.1 torchvision cudatoolkit=11.1 -c pytorch-lts -c nvidia
+
+pip install numpy
+pip install einops
+pip install scipy
+pip install nibabel
+pip install SimpleITK==2.2.1
