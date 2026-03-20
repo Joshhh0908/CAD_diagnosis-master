@@ -1,10 +1,23 @@
 import torch
 import math
+import logging
 from framework import sc_net_framework
 from tqdm import tqdm
 from config_3 import opt as opt3
 
-def train(num_epochs=200, lr=1e-5, device='cuda:0', save_path='model_58x40x8'):
+def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
+    # set up log file
+    log_path = f"{save_path}_train.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(message)s',
+        handlers=[
+            logging.FileHandler(log_path),
+            logging.StreamHandler()   # also still prints to terminal
+        ]
+    )
+    log = logging.getLogger()
+    log.info(f"Starting training — save_path={save_path} lr={lr} device={device}")
 
     fw = sc_net_framework(pattern='fine_tuning', cfg=opt3)
     model = fw.model.to(device)
@@ -45,7 +58,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:0', save_path='model_58x40x8'):
 
             od_outputs, sc_outputs = model(images)
             loss = loss_fn(od_outputs, sc_outputs, targets)
-            
+
             # DEBUG — first batch of every epoch
             if first_batch:
                 first_batch = False
@@ -54,11 +67,8 @@ def train(num_epochs=200, lr=1e-5, device='cuda:0', save_path='model_58x40x8'):
                     bg_prob    = probs[:, :, -1].mean().item()
                     max_lesion = probs[:, :, :-1].max().item()
                     gt_count   = sum(len(t['boxes']) for t in targets)
-                    print(f"  [DIAG e{epoch+1:03d}] "
-                          f"bg={bg_prob:.3f} "
-                          f"max_lesion={max_lesion:.3f} "
-                          f"gt_boxes={gt_count} "
-                          f"lr={scheduler.get_last_lr()[0]:.2e}")
+                    log.info(f"  [DIAG e{epoch+1:03d}] bg={bg_prob:.3f} max_lesion={max_lesion:.3f} lr={scheduler.get_last_lr()[0]:.2e}")
+
 
             optimizer.zero_grad()
             loss.backward()
@@ -107,12 +117,12 @@ def train(num_epochs=200, lr=1e-5, device='cuda:0', save_path='model_58x40x8'):
             best_val_loss = val_loss
             torch.save(model.state_dict(), f"{save_path}_best.pth")
 
-        print(f"Epoch {epoch+1:03d}/{num_epochs} | "
-              f"train: {train_loss:.4f} | "
-              f"val: {val_loss:.4f} | "
-              f"lr: {scheduler.get_last_lr()[0]:.2e} | "
-              f"saved: {epoch_path}"
-              f"{marker}")
-
+        # replace the epoch summary print
+        log.info(f"Epoch {epoch+1:03d}/{num_epochs} | "
+                f"train: {train_loss:.4f} | "
+                f"val: {val_loss:.4f} | "
+                f"lr: {scheduler.get_last_lr()[0]:.2e} | "
+                f"saved: {epoch_path}"
+                f"{marker}")
 if __name__ == '__main__':
-    train(lr=1e-5 ,device='cuda:0', save_path='model_58x40x8_reducedLR_warmup')
+    train(lr=1e-5 ,device='cuda:1', save_path='model_58x40x8_reducedLR_warmup')

@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug train",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/train_58x40x8_reducedLR_warmup.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {"CUDA_VISIBLE_DEVICES": "1"}
+        }
+    ]
+}

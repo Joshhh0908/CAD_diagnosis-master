@@ -1,0 +1,26 @@
+2026-03-20 15:42:36,437 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 15:42:38,779   [DIAG e001] bg=0.141 max_lesion=0.241 lr=1.00e-06
+2026-03-20 15:43:21,614 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 16:00:09,143 Epoch 001/200 | train: 4.9104 | val: 3.8640 | lr: 2.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch001.pth *
+2026-03-20 16:06:34,631   [DIAG e001] bg=0.135 max_lesion=0.198 lr=1.00e-06
+2026-03-20 16:17:39,984 Epoch 002/200 | train: 3.8026 | val: 3.6215 | lr: 3.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch002.pth *
+2026-03-20 16:21:12,910 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 16:35:13,773 Epoch 003/200 | train: 3.8156 | val: 3.6298 | lr: 4.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch003.pth
+2026-03-20 16:48:22,612   [DIAG e001] bg=0.142 max_lesion=0.194 lr=1.00e-06
+2026-03-20 16:49:56,551 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 16:52:49,416 Epoch 004/200 | train: 3.8153 | val: 3.5334 | lr: 5.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch004.pth *
+2026-03-20 17:07:56,982 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 17:10:29,311 Epoch 005/200 | train: 3.7175 | val: 3.6194 | lr: 6.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch005.pth
+2026-03-20 17:20:07,399 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 17:28:12,769 Epoch 006/200 | train: 3.6464 | val: 3.4247 | lr: 7.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch006.pth *
+2026-03-20 17:34:46,444 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 17:45:59,092 Epoch 007/200 | train: 3.5530 | val: 3.4425 | lr: 8.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch007.pth
+2026-03-20 17:49:58,036 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 17:52:54,557 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 17:54:03,302 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 17:59:45,089 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 18:00:36,171 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 18:03:45,613 Epoch 008/200 | train: 3.5076 | val: 3.2836 | lr: 9.00e-06 | saved: model_58x40x8_reducedLR_warmup_epoch008.pth *
+2026-03-20 18:05:35,169 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:0
+2026-03-20 18:05:55,277 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:1
+2026-03-20 18:08:51,465 Starting training — save_path=model_58x40x8_reducedLR_warmup lr=1e-05 device=cuda:1

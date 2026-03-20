@@ -30,7 +30,7 @@ class object_detection_loss(nn.Module):
         
 
         if target_classes_o.numel() != 0:
-            target_classes_o = target_classes_o.to(device=src_logits.device, dtype=torch.long)  # add device=
+            target_classes_o = target_classes_o.to(device=src_logits.device, dtype=torch.long) 
             target_classes[idx] = target_classes_o
         else:
             empty_batch = True
@@ -44,7 +44,7 @@ class object_detection_loss(nn.Module):
         idx = self._get_src_permutation_idx(indices)
         src_boxes = outputs['pred_boxes'][idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        target_boxes = target_boxes.to(src_boxes.device)  # add this line
+        target_boxes = target_boxes.to(src_boxes.device)
 
         loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
         loss_giou = 1 - torch.diag(funcs.generalized_box_iou(funcs.box_cxcywh_to_xyxy(src_boxes),
