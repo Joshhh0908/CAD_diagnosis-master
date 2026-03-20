@@ -27,9 +27,10 @@ class object_detection_loss(nn.Module):
         target_classes = torch.full(src_logits.shape[:2], self.num_classes,
                                     dtype=torch.int64, device=src_logits.device)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        
 
         if target_classes_o.numel() != 0:
-            target_classes_o = target_classes_o.to(dtype=torch.long)
+            target_classes_o = target_classes_o.to(device=src_logits.device, dtype=torch.long)  # add device=
             target_classes[idx] = target_classes_o
         else:
             empty_batch = True
@@ -43,6 +44,8 @@ class object_detection_loss(nn.Module):
         idx = self._get_src_permutation_idx(indices)
         src_boxes = outputs['pred_boxes'][idx]
         target_boxes = torch.cat([t['boxes'][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_boxes = target_boxes.to(src_boxes.device)  # add this line
+
         loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
         loss_giou = 1 - torch.diag(funcs.generalized_box_iou(funcs.box_cxcywh_to_xyxy(src_boxes),
                                                             funcs.box_cxcywh_to_xyxy(target_boxes)))
@@ -87,6 +90,7 @@ class sampling_point_classification_loss(nn.Module):
 
         logits = rearrange(outputs["pred_logits"], 'b l c -> (b l) c').to(torch.float32)
         labels = torch.cat([t["labels"] for t in targets], dim=0).to(torch.long)
+        labels = labels.to(logits.device)
 
         return self.loss_labels(logits, labels)
 
@@ -95,7 +99,8 @@ def od2sc_targets(od_box_data, seq_length):
 
     sc_point_data, interval = [], 1 / (seq_length + 1)
     for box_data in od_box_data:
-        point_data = torch.zeros(seq_length, dtype=torch.long)
+        device = box_data['boxes'].device
+        point_data = torch.zeros(seq_length, dtype=torch.long, device=device)
         tmp = torch.round(box_data['boxes'] / interval).int()
         tmp = torch.clamp(tmp, min=1, max=seq_length) - 1
         for k in range(tmp.shape[0]):
@@ -134,9 +139,8 @@ def sc2od_targets(sc_point_data, seq_length):
             boxes.append([(start + 1) / length, 1.0])
             labels.append(label - 1)
 
-        boxes = torch.tensor(boxes)
-        labels = torch.tensor(labels)
-
+        boxes = torch.tensor(boxes, device=tmp_data.device)
+        labels = torch.tensor(labels, device=tmp_data.device)  
         od_box_data.append({"labels": labels, "boxes": boxes})
     return od_box_data
 

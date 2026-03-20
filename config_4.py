@@ -2,20 +2,20 @@ class DefaultConfig(object):
 
     data_params = {
         "dataset_root": '/mnt/nas4/diskm/wangxh/ctca_no/dataset/test_geo_02mm_clean/',
-        "eos_coef": 0.2,
+        "eos_coef": 0.02,
         "train_ratio": 0.8,
         "window_lw": [-300, 900],
         "batch_size": 4
     }
     net_params = {
         "input_shape": [480, 40, 40], # [256, 64, 64],
-        "cubeseq_length": 58, #32
+        "cubeseq_length": 46, #32
         "num_classes": [6,6],
         "ret_map": True,
         "in_channels": 1
     }
     sc_params = {
-        "_3d_cube_selection": [58, 40, 8], #[32, 25, 8],
+        "_3d_cube_selection": [46, 40, 10], #[32, 25, 8],
         "temporal_conv_levels": 4,
         "temporal_conv_maps": [16, 32, 64, 128],
         "temporal_feature_channels": [128, 32],

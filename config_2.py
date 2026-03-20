@@ -9,13 +9,13 @@ class DefaultConfig(object):
     }
     net_params = {
         "input_shape": [480, 40, 40], # [256, 64, 64],
-        "cubeseq_length": 58, #32
+        "cubeseq_length": 46, #32
         "num_classes": [6,6],
         "ret_map": True,
         "in_channels": 1
     }
     sc_params = {
-        "_3d_cube_selection": [58, 40, 8], #[32, 25, 8],
+        "_3d_cube_selection": [46, 40, 10], #[32, 25, 8],
         "temporal_conv_levels": 4,
         "temporal_conv_maps": [16, 32, 64, 128],
         "temporal_feature_channels": [128, 32],

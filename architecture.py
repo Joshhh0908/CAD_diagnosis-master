@@ -164,16 +164,19 @@ class _2d_extraction_block(nn.Module):
         b, c, n_l, n_h, n_w = _3d_features.shape
         view1 = _3d_features[:, :, :, n_h // 2]
         view2 = _3d_features[:, :, :, :, n_w // 2]
-        view3 = _3d_features[:, :, np.arange(n_l)[:, None], np.arange(n_h), np.arange(n_w)]
-        view4 = _3d_features[:, :, np.arange(n_l)[:, None], np.arange(n_h), np.arange(n_w - 1, -1, -1)]
+        view3 = _3d_features[:, :, torch.arange(n_l, device=_3d_features.device)[:, None],
+                                torch.arange(n_h, device=_3d_features.device),
+                                torch.arange(n_w, device=_3d_features.device)]
+        view4 = _3d_features[:, :, torch.arange(n_l, device=_3d_features.device)[:, None],
+                                torch.arange(n_h, device=_3d_features.device),
+                                torch.arange(n_w - 1, -1, -1, device=_3d_features.device)]
         ret_feature = torch.cat((view1.unsqueeze(1), view2.unsqueeze(1), view3.unsqueeze(1), view4.unsqueeze(1)), dim=1)
         return ret_feature
 
     def _2d_maps_to_3d_maps(self, _2d_features):
-
         b, v, c, n_l, n_h = _2d_features.shape
         ret_features = _2d_features.unsqueeze(-1).repeat(1, 1, 1, 1, 1, n_h)
-        feature_weight = torch.tensor(self.feature_weight).view(1, 4, 1, 1, 1, 1)
+        feature_weight = torch.tensor(self.feature_weight).view(1, 4, 1, 1, 1, 1).to(_2d_features.device)
         ret_features = (ret_features * feature_weight).sum(dim=1)
         return ret_features
 
@@ -215,21 +218,20 @@ class feature_extraction_3d(nn.Module):
         self.conv_levels = conv_levels
         self._3d_weight = _3d_weight
 
-        self._3d_extraction_blocks = [
+        self._3d_extraction_blocks = nn.ModuleList([
             _3d_extraction_block(in_channels=f_maps[i - 1] if i > 0 else in_channels,
-                                 out_channels=f_maps[i],
-                                 _3d_conv_num=conv_num_3d[i])
+                                out_channels=f_maps[i],
+                                _3d_conv_num=conv_num_3d[i])
             for i in range(self.conv_levels)
-        ]
+        ])
 
-        self._2d_extraction_blocks = [
+        self._2d_extraction_blocks = nn.ModuleList([
             _2d_extraction_block(in_channels=f_maps[i - 1] if i > 0 else in_channels,
-                                 out_channels=f_maps[i],
-                                 _2d_conv_num=conv_num_2d[i],
-                                 feature_weight=_2d_weight
-                                 )
+                                out_channels=f_maps[i],
+                                _2d_conv_num=conv_num_2d[i],
+                                feature_weight=_2d_weight)
             for i in range(self.conv_levels)
-        ]
+        ])
 
     def forward(self, x):
         b, n_l, n_h, n_w = x.shape
@@ -307,7 +309,7 @@ class spatial_semantic_learning(nn.Module):
 
         x = self.feature_3d(img)
         emb_f = self.flattening_projection(x)
-        emb_q = self.embedding_maker(torch.randint(0, self.num_query, (b, self.num_query)))
+        emb_q = self.embedding_maker(torch.randint(0, self.num_query, (b, self.num_query), device=img.device))
         emb_f, emb_q = emb_f.transpose(0, 1), emb_q.transpose(0, 1)
         x = self.transformer_architecture(emb_f, emb_q).transpose(0, 1)
         xc, xb = self.object_detection(x, self.pattern)

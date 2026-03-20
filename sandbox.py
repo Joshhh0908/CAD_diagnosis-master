@@ -1,8 +1,27 @@
-from dataprep import CPRDataset
-import numpy as np
+import os
+import shutil
+import re
 
-train_ds = CPRDataset("/mnt/nas4/diskm/wangxh/CTCA_handover_26_allbranch_02to04mm_revise4_disk4/dataset/train_geo_02mm_clean/volumes/", True)
+# run from your CAD_diagnosis-master directory
+base_dir = os.path.dirname(os.path.abspath(__file__))
 
-labels_file =train_ds.paths[0][3]
-ret_labels = np.loadtxt(labels_file).astype(np.int32)
-print(ret_labels.shape)
+# find all .pth files in the base directory
+pth_files = [f for f in os.listdir(base_dir) if f.endswith('.pth')]
+
+for fname in pth_files:
+    # extract run name — everything before _epoch or _best
+    match = re.match(r'^(model_[^_]+(?:_\d+x\d+x\d+)?)_(epoch\d+|best)\.pth$', fname)
+    if not match:
+        print(f"Skipping unrecognised filename: {fname}")
+        continue
+
+    run_name = match.group(1)   # e.g. model_46x40x10 or model_58x40x8
+    folder   = os.path.join(base_dir, run_name)
+    os.makedirs(folder, exist_ok=True)
+
+    src = os.path.join(base_dir, fname)
+    dst = os.path.join(folder,   fname)
+    shutil.move(src, dst)
+    print(f"Moved {fname} -> {run_name}/")
+
+print("\nDone.")

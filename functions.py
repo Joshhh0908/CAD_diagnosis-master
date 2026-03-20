@@ -35,7 +35,7 @@ def _3d_cubes_selection(input_volume, cube_size, num_cubes, step, batch_size):
 
     b, n_l, n_h, n_w = input_volume.shape
     centers = [step // 2 + step * i - 1 for i in range(num_cubes)]
-    output_cubes = torch.zeros((batch_size, len(centers), cube_size, cube_size, cube_size))
+    output_cubes = torch.zeros((batch_size, len(centers), cube_size, cube_size, cube_size), device=input_volume.device)
 
     for i, center in enumerate(centers):
         start = center - cube_size // 2

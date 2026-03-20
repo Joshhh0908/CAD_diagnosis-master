@@ -7,3 +7,7 @@ pip install einops
 pip install scipy
 pip install nibabel
 pip install SimpleITK==2.2.1
+pip install pandas
+pip install tqdm
+pip install matplotlib
+pip install scikit-learn
