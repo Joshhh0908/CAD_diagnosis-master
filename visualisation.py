@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classifica
 from tqdm import tqdm
 
 from framework import sc_net_framework
-from config import opt
+from config_1 import opt
 
 # ── label definitions ────────────────────────────────────────
 CLASS_NAMES = ['NS+NC', 'NS+M', 'NS+C', 'S+NC', 'S+M', 'S+C']

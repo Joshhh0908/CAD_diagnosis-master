@@ -2,7 +2,7 @@ class DefaultConfig(object):
 
     data_params = {
         "dataset_root": '/mnt/nas4/diskm/wangxh/ctca_no/dataset/test_geo_02mm_clean/',
-        "eos_coef": 0.2,
+        "eos_coef": 0.02,
         "train_ratio": 0.8,
         "window_lw": [-300, 900],
         "batch_size": 4

@@ -1,9 +1,23 @@
 import torch
+import math
+import logging
 from framework import sc_net_framework
 from tqdm import tqdm
-from config import opt as opt1
+from config_1 import opt as opt1
 
-def train(num_epochs=200, lr=1e-4, device='cuda:0', save_path='model_58x40x8'):
+def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
+    # set up log file
+    log_path = f"{save_path}_train.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(message)s',
+        handlers=[
+            logging.FileHandler(log_path),
+            logging.StreamHandler()
+        ]
+    )
+    log = logging.getLogger()
+    log.info(f"Starting training — save_path={save_path} lr={lr} device={device}")
 
     fw = sc_net_framework(pattern='fine_tuning', cfg=opt1)
     model = fw.model.to(device)
@@ -12,13 +26,19 @@ def train(num_epochs=200, lr=1e-4, device='cuda:0', save_path='model_58x40x8'):
     eval_loader = fw.dataLoader_eval
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
+    def warmup_then_cosine(epoch):
+        if epoch < 10:
+            return (epoch + 1) / 10
+        progress = (epoch - 10) / (num_epochs - 10)
+        return 0.5 * (1 + math.cos(math.pi * progress))
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmup_then_cosine)
 
     best_val_loss = float('inf')
     
     print(f"Device: {device}")
     print(f"Train batches: {len(train_loader)} | Val batches: {len(eval_loader)}")
     print(f"Starting training for {num_epochs} epochs\n")
+    first_batch = True
 
     for epoch in range(num_epochs):
 
@@ -37,20 +57,22 @@ def train(num_epochs=200, lr=1e-4, device='cuda:0', save_path='model_58x40x8'):
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             od_outputs, sc_outputs = model(images)
+            #box checking debug
+            boxes = od_outputs["pred_boxes"].reshape(-1, 2)
+            mask = boxes[:, 1] > boxes[:, 0]
+            
             loss = loss_fn(od_outputs, sc_outputs, targets)
 
-            # add after od_outputs, sc_outputs = model(images) in training loop
-            if epoch == 0 and train_loss == 0.0:  # first batch only
+            # DEBUG — first batch of every epoch
+            if first_batch:
+                first_batch = False
                 with torch.no_grad():
-                    logits = od_outputs['pred_logits']   # (B, 16, num_classes+1)
-                    boxes  = od_outputs['pred_boxes']    # (B, 16, 2)
-                    probs  = torch.softmax(logits, dim=-1)
-                    bg_prob    = probs[:, :, -1].mean().item()   # avg background prob
-                    max_lesion = probs[:, :, :-1].max().item()   # highest lesion prob anywhere
-                    print(f"\n[DIAG epoch {epoch+1}] "
-                        f"avg_bg_prob={bg_prob:.4f} "
-                        f"max_lesion_prob={max_lesion:.4f} "
-                        f"gt_boxes={sum(len(t['boxes']) for t in targets)}")
+                    probs = torch.softmax(od_outputs['pred_logits'], dim=-1)
+                    bg_prob    = probs[:, :, -1].mean().item()
+                    max_lesion = probs[:, :, :-1].max().item()
+                    gt_count   = sum(len(t['boxes']) for t in targets)
+                    log.info(f"  [DIAG e{epoch+1:03d}] bg={bg_prob:.3f} max_lesion={max_lesion:.3f} lr={scheduler.get_last_lr()[0]:.2e}")
+
 
             optimizer.zero_grad()
             loss.backward()
@@ -99,12 +121,12 @@ def train(num_epochs=200, lr=1e-4, device='cuda:0', save_path='model_58x40x8'):
             best_val_loss = val_loss
             torch.save(model.state_dict(), f"{save_path}_best.pth")
 
-        print(f"Epoch {epoch+1:03d}/{num_epochs} | "
-              f"train: {train_loss:.4f} | "
-              f"val: {val_loss:.4f} | "
-              f"lr: {scheduler.get_last_lr()[0]:.2e} | "
-              f"saved: {epoch_path}"
-              f"{marker}")
-
+        # replace the epoch summary print
+        log.info(f"Epoch {epoch+1:03d}/{num_epochs} | "
+                f"train: {train_loss:.4f} | "
+                f"val: {val_loss:.4f} | "
+                f"lr: {scheduler.get_last_lr()[0]:.2e} | "
+                f"saved: {epoch_path}"
+                f"{marker}")
 if __name__ == '__main__':
-    train(device='cuda:0', save_path='DEBUG_RUN')
+    train(lr=1e-5, num_epochs=75, device='cuda:0', save_path='model_58x40x8_unchanged_labels')

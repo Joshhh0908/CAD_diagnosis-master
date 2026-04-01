@@ -100,15 +100,16 @@ class sampling_point_classification_loss(nn.Module):
 
 def od2sc_targets(od_box_data, seq_length):
 
-    sc_point_data, interval = [], 1 / (seq_length + 1)
+    sc_point_data = []
     for box_data in od_box_data:
         device = box_data['boxes'].device
         point_data = torch.zeros(seq_length, dtype=torch.long, device=device)
-        tmp = torch.round(box_data['boxes'] / interval).int()
+        tmp = torch.round(box_data['boxes'] *(seq_length + 1)).int()
         tmp = torch.clamp(tmp, min=1, max=seq_length) - 1
+        #tmp is the start and end cube indes
         #why just shift back one cube for what
         for k in range(tmp.shape[0]):
-            point_data[tmp[k, 0]:tmp[k, 1] + 1] = box_data['labels'][k] + 1
+            point_data[tmp[k, 0]:tmp[k, 1] + 1] = box_data['labels'][k] #remove the +1, labels come in as 0-5 for lesions, 6 for bg
         sc_point_data += [{"labels": point_data}]
     return sc_point_data
 
@@ -127,7 +128,7 @@ def sc2od_targets(sc_point_data, seq_length):
                 if tmp_data[i] != last:
                     boxes.append([(start + 1) / length, min((i + 1) / length, 1.0)])
                     # the start and i + 1 here is wrong, also wrong when ubild the data, why need to +1? 
-                    labels.append(label - 1)
+                    labels.append(label) #remove the -1, labels come in as 0-5 for lesions, 6 for bg
                     #are we converting the labels correctly? 0 in txt file for bg, 6 in od? 0 or 6 in od?
                     if tmp_data[i] != 0:
                         start, label, last = i, tmp_data[i], tmp_data[i]
@@ -143,7 +144,7 @@ def sc2od_targets(sc_point_data, seq_length):
 
         if start is not None:
             boxes.append([(start + 1) / length, 1.0])
-            labels.append(label - 1)
+            labels.append(label) #remove the -1, labels come in as 0-5 for lesions, 6 for bg
 
         boxes = torch.tensor(boxes, device=tmp_data.device)
         labels = torch.tensor(labels, device=tmp_data.device)  
@@ -170,8 +171,6 @@ class dual_task_contrastive_loss(nn.Module):
 
     def _get_sampling_point_classification_targets(self, od_outputs, od_targets):
 
-        # od_outputs = funcs.boxes_dimension_expansion(od_outputs, dtype='outputs')
-        # od_targets = funcs.boxes_dimension_expansion(od_targets, dtype='targets')
         indices = self.matcher(od_outputs, od_targets)
         selected_indices = [item[0] for item in indices]
 
@@ -184,7 +183,6 @@ class dual_task_contrastive_loss(nn.Module):
             selected_boxes = boxes[indices]
             labels = torch.argmax(selected_logits, dim=1) #removed the -1
             # labels = torch.clamp(labels, min=0)
-            assert all(label != -1 for label in labels), f"labels: {labels} \n"
 
             ret_od_targets.append({"labels": labels, "boxes": selected_boxes})
 
@@ -195,7 +193,6 @@ class dual_task_contrastive_loss(nn.Module):
 
         sc_con_targets = self._get_sampling_point_classification_targets(od_outputs, od_targets)
         od_con_targets = self._get_object_detection_targets(sc_outputs)
-        # od_con_targets = funcs.boxes_dimension_expansion(od_con_targets, dtype='targets')
 
         sc_loss_values =self.sc_contrastive_loss(sc_outputs, sc_con_targets)
         od_loss_values = self.od_contrastive_loss(od_outputs, od_con_targets)
@@ -220,6 +217,5 @@ class spatio_temporal_contrast_loss(nn.Module):
 
         ret_loss = self.dc_loss(od_outputs, sc_outputs, od_targets) * delta
         ret_loss += self.od_loss(od_outputs, od_targets)
-        # check below if build targets for cubes correct, should be correct...
         ret_loss += self.sc_loss(sc_outputs, od2sc_targets(od_targets, self.seq_length))
         return ret_loss

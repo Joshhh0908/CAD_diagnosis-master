@@ -6,10 +6,7 @@ from torch.utils import data
 import numpy as np
 from scipy.ndimage import zoom
 import SimpleITK as sitk
-
 import functions as funcs
-
-
 
 
 class cubic_sequence_data(data.Dataset):

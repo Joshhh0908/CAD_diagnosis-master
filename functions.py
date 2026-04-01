@@ -31,6 +31,29 @@ def normalize_ct_data(data_array, hu_min=-200, hu_max=800):
     return normalized_array
 
 
+def _3d_cubes_selection(input_volume, cube_size, num_cubes, step, batch_size):
+
+    b, n_l, n_h, n_w = input_volume.shape
+    centers = [step // 2 + step * i - 1 for i in range(num_cubes)]
+    output_cubes = torch.zeros((batch_size, len(centers), cube_size, cube_size, cube_size), device=input_volume.device)
+
+    for i, center in enumerate(centers):
+        start = center - cube_size // 2
+        end = start + cube_size
+        set_start, set_end = 0, cube_size
+        if start < 0:
+            set_start -= start
+            start = 0
+        if end > n_l:
+            set_end = cube_size - (end - n_l)
+            end = n_l
+        cut_start, cut_end = int(n_h / 2 - cube_size // 2), int(n_h / 2 + cube_size // 2 + 1)
+        output_cubes[:, i, set_start: set_end, :, :] = input_volume[:, start:end,
+                                                                    cut_start: cut_end,
+                                                                    cut_start: cut_end]
+    return output_cubes
+
+
 def number_parameters(Net, type_size=8):
     para = sum([np.prod(list(p.size())) for p in Net.parameters()])
     return para / 1024 * type_size / 1024

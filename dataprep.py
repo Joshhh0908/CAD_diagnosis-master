@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import Dataset
 import SimpleITK as sitk
 from scipy.ndimage import zoom, rotate
-from config import cfg
+from config_1 import cfg
 
 
 class CPRDataset(Dataset):

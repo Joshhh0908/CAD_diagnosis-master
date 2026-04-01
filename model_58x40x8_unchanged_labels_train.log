@@ -1,0 +1,2 @@
+2026-04-01 17:10:01,085 Starting training — save_path=model_58x40x8_unchanged_labels lr=1e-05 device=cuda:0
+2026-04-01 17:10:06,219   [DIAG e001] bg=0.121 max_lesion=0.226 lr=1.00e-06
