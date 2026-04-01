@@ -1,0 +1,13 @@
+2026-04-01 11:02:13,709 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 12:49:35,055 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:09:09,215 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:09:58,057   [DIAG e001] bg=0.111 max_lesion=0.216 lr=1.00e-06
+2026-04-01 13:10:06,549 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:13:39,281 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:14:41,793 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:15:12,764 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:16:52,537 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:25:04,848 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:30:16,937 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:31:02,292 Starting training — save_path=model_58x40x8_reducedEOS_1D lr=1e-05 device=cuda:0
+2026-04-01 13:31:21,266   [DIAG e001] bg=0.141 max_lesion=0.212 lr=1.00e-06

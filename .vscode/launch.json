@@ -7,7 +7,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/train_58x40x8_reducedLR_warmup.py",
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": true,
+            "python": "/home/joshua/miniconda3/envs/STCN/bin/python",
             "env": {"CUDA_VISIBLE_DEVICES": "1"}
         }
     ]

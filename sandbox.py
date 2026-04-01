@@ -10,7 +10,7 @@ pth_files = [f for f in os.listdir(base_dir) if f.endswith('.pth')]
 
 for fname in pth_files:
     # extract run name — everything before _epoch or _best
-    match = re.match(r'^(model_[^_]+(?:_\d+x\d+x\d+)?)_(epoch\d+|best)\.pth$', fname)
+    match = re.match(r'^(model_[^_]+(?:_\d+x\d+x\d+)?)_reducedLR_warmup_(epoch\d+|best)\.pth$', fname)
     if not match:
         print(f"Skipping unrecognised filename: {fname}")
         continue

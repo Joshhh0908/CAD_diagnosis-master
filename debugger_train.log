@@ -1,0 +1,3 @@
+2026-04-01 15:20:48,721 Starting training — save_path=debugger lr=1e-05 device=cuda:0
+2026-04-01 15:23:59,715   [DIAG e001] bg=0.137 max_lesion=0.222 lr=1.00e-06
+2026-04-01 15:27:22,979 Starting training — save_path=debugger lr=1e-05 device=cuda:0

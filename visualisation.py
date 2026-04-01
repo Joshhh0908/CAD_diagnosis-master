@@ -399,7 +399,7 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
 
 if __name__ == '__main__':
     evaluate(
-        checkpoint_path='/home/joshua/CAD_diagnosis-master/model_58x40x8/model_58x40x8_epoch001.pth',
+        checkpoint_path='/home/joshua/CAD_diagnosis-master/model_58x40x8_reducedLR/model_58x40x8_reducedLR_warmup_epoch015.pth',
         out_dir='eval_results',
         device='cuda',
         score_thresh=0.01,

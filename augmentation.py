@@ -11,6 +11,7 @@ from torch.utils import data
 from torch.utils.data import DataLoader
 import numpy as np
 from scipy.ndimage import zoom
+import SimpleITK as sitk
 
 from architecture import spatio_temporal_semantic_learning
 import functions as funcs
@@ -108,7 +109,6 @@ class cubic_sequence_data(data.Dataset):
                  input_shape=[480, 40, 40], window=[300, 900],
                  train_root=None, test_root=None):
 
-        import SimpleITK as sitk
         self.sitk = sitk
         self.input_shape = input_shape
         self.window = window
@@ -125,6 +125,7 @@ class cubic_sequence_data(data.Dataset):
 
         self.volumes_file_list = sorted(glob.glob(os.path.join(volume_root, "*.nii.gz")))
         self.length = len(self.volumes_file_list)
+        self.aug = True if pattern == 'training' else False
 
 
     def _fix_shape(self, vol, labels):

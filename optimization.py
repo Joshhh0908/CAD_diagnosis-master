@@ -32,6 +32,7 @@ class object_detection_loss(nn.Module):
         if target_classes_o.numel() != 0:
             target_classes_o = target_classes_o.to(device=src_logits.device, dtype=torch.long) 
             target_classes[idx] = target_classes_o
+            print()
         else:
             empty_batch = True
 
@@ -47,8 +48,10 @@ class object_detection_loss(nn.Module):
         target_boxes = target_boxes.to(src_boxes.device)
 
         loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
-        loss_giou = 1 - torch.diag(funcs.generalized_box_iou(funcs.box_cxcywh_to_xyxy(src_boxes),
-                                                            funcs.box_cxcywh_to_xyxy(target_boxes)))
+        # loss_giou = 1 - torch.diag(funcs.generalized_box_iou(funcs.box_cxcywh_to_xyxy(src_boxes),
+        #                                                     funcs.box_cxcywh_to_xyxy(target_boxes)))
+        loss_giou = 1 - torch.diag(funcs.generalized_box_iou_1d(src_boxes, target_boxes))
+
         return loss_bbox.sum() / num_boxes + loss_giou.sum() / num_boxes
 
     def _get_src_permutation_idx(self, indices):
@@ -75,7 +78,7 @@ class object_detection_loss(nn.Module):
         loss_boxes = self.loss_boxes(outputs, targets, indices, num_boxes)
         return loss_labels + loss_boxes
 
-
+#SC LOSS
 class sampling_point_classification_loss(nn.Module):
     def __init__(self, num_classes=3, seq_length=32):
         super().__init__()
@@ -103,6 +106,7 @@ def od2sc_targets(od_box_data, seq_length):
         point_data = torch.zeros(seq_length, dtype=torch.long, device=device)
         tmp = torch.round(box_data['boxes'] / interval).int()
         tmp = torch.clamp(tmp, min=1, max=seq_length) - 1
+        #why just shift back one cube for what
         for k in range(tmp.shape[0]):
             point_data[tmp[k, 0]:tmp[k, 1] + 1] = box_data['labels'][k] + 1
         sc_point_data += [{"labels": point_data}]
@@ -122,7 +126,9 @@ def sc2od_targets(sc_point_data, seq_length):
             if start is not None:
                 if tmp_data[i] != last:
                     boxes.append([(start + 1) / length, min((i + 1) / length, 1.0)])
+                    # the start and i + 1 here is wrong, also wrong when ubild the data, why need to +1? 
                     labels.append(label - 1)
+                    #are we converting the labels correctly? 0 in txt file for bg, 6 in od? 0 or 6 in od?
                     if tmp_data[i] != 0:
                         start, label, last = i, tmp_data[i], tmp_data[i]
                     else:
@@ -164,8 +170,8 @@ class dual_task_contrastive_loss(nn.Module):
 
     def _get_sampling_point_classification_targets(self, od_outputs, od_targets):
 
-        od_outputs = funcs.boxes_dimension_expansion(od_outputs, dtype='outputs')
-        od_targets = funcs.boxes_dimension_expansion(od_targets, dtype='targets')
+        # od_outputs = funcs.boxes_dimension_expansion(od_outputs, dtype='outputs')
+        # od_targets = funcs.boxes_dimension_expansion(od_targets, dtype='targets')
         indices = self.matcher(od_outputs, od_targets)
         selected_indices = [item[0] for item in indices]
 
@@ -175,18 +181,23 @@ class dual_task_contrastive_loss(nn.Module):
             logits = od_outputs["pred_logits"][batch_idx]
             boxes = od_outputs["pred_boxes"][batch_idx]
             selected_logits = logits[indices]
-            selected_boxes = boxes[indices][:, [0, 2]]
+            # selected_boxes = boxes[indices][:, [0, 2]]
+            selected_boxes = boxes[indices]
             labels = torch.argmax(selected_logits, dim=1) - 1
             labels = torch.clamp(labels, min=0)
+            #check for stupid -1 bug
+            assert all(label != -1 for label in labels), f"labels: {labels} \n"
+
             ret_od_targets.append({"labels": labels, "boxes": selected_boxes})
 
+        all_boxes = [x["boxes"] for x in ret_od_targets]
         return od2sc_targets(ret_od_targets, self.seq_length)
 
     def forward(self, od_outputs, sc_outputs, od_targets):
 
         sc_con_targets = self._get_sampling_point_classification_targets(od_outputs, od_targets)
         od_con_targets = self._get_object_detection_targets(sc_outputs)
-        od_con_targets = funcs.boxes_dimension_expansion(od_con_targets, dtype='targets')
+        # od_con_targets = funcs.boxes_dimension_expansion(od_con_targets, dtype='targets')
 
         sc_loss_values =self.sc_contrastive_loss(sc_outputs, sc_con_targets)
         od_loss_values = self.od_contrastive_loss(od_outputs, od_con_targets)
@@ -211,5 +222,6 @@ class spatio_temporal_contrast_loss(nn.Module):
 
         ret_loss = self.dc_loss(od_outputs, sc_outputs, od_targets) * delta
         ret_loss += self.od_loss(od_outputs, od_targets)
+        # check below if build targets for cubes correct, should be correct...
         ret_loss += self.sc_loss(sc_outputs, od2sc_targets(od_targets, self.seq_length))
         return ret_loss

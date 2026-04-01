@@ -107,7 +107,7 @@ class temporal_correlation_analysis(nn.Module):
 class sampling_point_classify(nn.Module):
     def __init__(self, num_class, dim_list):
         super().__init__()
-
+        #num class = 7
         self.MLP = MLP_Block(dim_list[0], dim_list[1], num_class)
         self.soft_max = nn.Softmax(dim=1)
 
@@ -268,10 +268,11 @@ class spatial_flattening_projection(nn.Module):
 class bounding_box_prediction(nn.Module):
     def __init__(self, num_class, dim_list):
         super().__init__()
-
+        
+        #NUM CLASS IS 7
         self.class_prediction = MLP_Block(dim_list[0], dim_list[1], num_class)
         self.boxes_prediction = MLP_Block(dim_list[0], dim_list[1], 2)
-        self.soft_max = nn.Softmax(dim=1)
+        self.soft_max = nn.Softmax(dim=1)   
 
     def forward(self, x, p):
         b, l, c = x.shape

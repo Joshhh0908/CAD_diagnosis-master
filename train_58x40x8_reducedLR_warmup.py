@@ -13,7 +13,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
         format='%(asctime)s %(message)s',
         handlers=[
             logging.FileHandler(log_path),
-            logging.StreamHandler()   # also still prints to terminal
+            logging.StreamHandler()
         ]
     )
     log = logging.getLogger()
@@ -57,6 +57,10 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             od_outputs, sc_outputs = model(images)
+            #box checking debug
+            boxes = od_outputs["pred_boxes"].reshape(-1, 2)
+            mask = boxes[:, 1] > boxes[:, 0]
+            
             loss = loss_fn(od_outputs, sc_outputs, targets)
 
             # DEBUG — first batch of every epoch
@@ -125,4 +129,4 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                 f"saved: {epoch_path}"
                 f"{marker}")
 if __name__ == '__main__':
-    train(lr=1e-5 ,device='cuda:1', save_path='model_58x40x8_reducedLR_warmup')
+    train(lr=1e-5, num_epochs=75, device='cuda:0', save_path='debugger')

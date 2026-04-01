@@ -69,8 +69,45 @@ def gradient_preference(*input_tensors):
     return numpy_arrays
 
 
+# class HungarianMatcherOLD(nn.Module):
+#     def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1):
+#         super().__init__()
+
+#         self.cost_class = cost_class
+#         self.cost_bbox = cost_bbox
+#         self.cost_giou = cost_giou
+#         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
+
+#     def forward(self, outputs, targets):
+
+#         bs, num_queries = outputs["pred_logits"].shape[:2]
+
+#         out_prob = outputs["pred_logits"].flatten(0, 1).softmax(-1)
+#         out_bbox = outputs["pred_boxes"].flatten(0, 1)
+#         tgt_ids = torch.cat([v["labels"] for v in targets])
+#         tgt_bbox = torch.cat([v["boxes"] for v in targets])
+#         tgt_ids = tgt_ids.to(dtype=torch.long)
+
+#         numpy_array_group = gradient_preference(out_prob, out_bbox, tgt_ids, tgt_bbox)
+#         out_prob, out_bbox, tgt_ids, tgt_bbox = numpy_array_group[0], numpy_array_group[1],\
+#                                                 numpy_array_group[2], numpy_array_group[3]
+
+#         if tgt_ids.numel() == 0:
+#             return [(torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64)) for _ in range(bs)]
+
+#         cost_class = -out_prob[:, tgt_ids]
+#         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
+#         cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
+
+#         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
+#         C = C.view(bs, num_queries, -1).cpu()
+
+#         sizes = [len(v["boxes"]) for v in targets]
+#         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+#         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
+    
 class HungarianMatcher(nn.Module):
-    def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1):
+    def __init__(self, cost_class: float = 1, cost_bbox: float = 3, cost_giou: float = 1):
         super().__init__()
 
         self.cost_class = cost_class
@@ -88,16 +125,14 @@ class HungarianMatcher(nn.Module):
         tgt_bbox = torch.cat([v["boxes"] for v in targets])
         tgt_ids = tgt_ids.to(dtype=torch.long)
 
-        numpy_array_group = gradient_preference(out_prob, out_bbox, tgt_ids, tgt_bbox)
-        out_prob, out_bbox, tgt_ids, tgt_bbox = numpy_array_group[0], numpy_array_group[1],\
-                                                numpy_array_group[2], numpy_array_group[3]
+        out_prob, out_bbox, tgt_ids, tgt_bbox = gradient_preference(out_prob, out_bbox, tgt_ids, tgt_bbox)
 
         if tgt_ids.numel() == 0:
             return [(torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64)) for _ in range(bs)]
 
         cost_class = -out_prob[:, tgt_ids]
         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
-        cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
+        cost_giou = -generalized_box_iou_1d((out_bbox), (tgt_bbox)) #removed the dimension expansion and conversion of box formatting
 
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
         C = C.view(bs, num_queries, -1).cpu()
@@ -105,25 +140,54 @@ class HungarianMatcher(nn.Module):
         sizes = [len(v["boxes"]) for v in targets]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
+    
+#generalised IOU for 1D box instead
+def generalized_box_iou_1d(boxes1, boxes2):
+    """
+    boxes1: (N, 2) [start, end]
+    boxes2: (M, 2) [start, end]
+    returns: (N, M) GIoU matrix
+    """
+    s1, e1 = boxes1[:, 0:1], boxes1[:, 1:2]  # (N, 1)
+    s2, e2 = boxes2[:, 0:1].T, boxes2[:, 1:2].T  # (1, M)
+
+    # intersection
+    inter_s = torch.max(s1, s2)   # (N, M)
+    inter_e = torch.min(e1, e2)   # (N, M)
+    inter = (inter_e - inter_s).clamp(min=0)
+
+    # union
+    len1 = (e1 - s1)              # (N, 1)
+    len2 = (e2 - s2)              # (1, M)
+    union = len1 + len2 - inter
+
+    iou = inter / (union + 1e-6)
+
+    # enclosing segment
+    enclosing_s = torch.min(s1, s2)
+    enclosing_e = torch.max(e1, e2)
+    enclosing_len = (enclosing_e - enclosing_s).clamp(min=0)
+
+    giou = iou - (enclosing_len - union) / (enclosing_len + 1e-6)
+    return giou
+
+# def box_lastdim_expansion(data):
+
+#     if is_empty_tensor(data) == True:
+#         return data
+
+#     expanded_data = data.unsqueeze(-2).expand(*data.shape[:-1], 2, 2).reshape(*data.shape[:-1], 4)
+#     return expanded_data[..., [0, 2, 1, 3]]
 
 
-def box_lastdim_expansion(data):
+# def boxes_dimension_expansion(data, dtype='outputs'):
 
-    if is_empty_tensor(data) == True:
-        return data
-
-    expanded_data = data.unsqueeze(-2).expand(*data.shape[:-1], 2, 2).reshape(*data.shape[:-1], 4)
-    return expanded_data[..., [0, 2, 1, 3]]
-
-
-def boxes_dimension_expansion(data, dtype='outputs'):
-
-    if dtype == 'outputs':
-        data["pred_boxes"] = box_lastdim_expansion(data["pred_boxes"])
-    if dtype == 'targets':
-        for tmp_data in data:
-            tmp_data["boxes"] = box_lastdim_expansion(tmp_data["boxes"])
-    return data
+#     if dtype == 'outputs':
+#         data["pred_boxes"] = box_lastdim_expansion(data["pred_boxes"])
+#     if dtype == 'targets':
+#         for tmp_data in data:
+#             tmp_data["boxes"] = box_lastdim_expansion(tmp_data["boxes"])
+#     return data
 
 
 class SmoothedValue(object):
@@ -535,18 +599,18 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
         return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
 
 
-def box_cxcywh_to_xyxy(x):
-    x_c, y_c, w, h = x.unbind(-1)
-    b = [(x_c - 0.5 * w), (y_c - 0.5 * h),
-         (x_c + 0.5 * w), (y_c + 0.5 * h)]
-    return torch.stack(b, dim=-1)
+# def box_cxcywh_to_xyxy(x):
+#     x_c, y_c, w, h = x.unbind(-1)
+#     b = [(x_c - 0.5 * w), (y_c - 0.5 * h),
+#          (x_c + 0.5 * w), (y_c + 0.5 * h)]
+#     return torch.stack(b, dim=-1)
 
 
-def box_xyxy_to_cxcywh(x):
-    x0, y0, x1, y1 = x.unbind(-1)
-    b = [(x0 + x1) / 2, (y0 + y1) / 2,
-         (x1 - x0), (y1 - y0)]
-    return torch.stack(b, dim=-1)
+# def box_xyxy_to_cxcywh(x):
+#     x0, y0, x1, y1 = x.unbind(-1)
+#     b = [(x0 + x1) / 2, (y0 + y1) / 2,
+#          (x1 - x0), (y1 - y0)]
+#     return torch.stack(b, dim=-1)
 
 
 def box_iou(boxes1, boxes2):
