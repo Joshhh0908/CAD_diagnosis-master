@@ -181,11 +181,9 @@ class dual_task_contrastive_loss(nn.Module):
             logits = od_outputs["pred_logits"][batch_idx]
             boxes = od_outputs["pred_boxes"][batch_idx]
             selected_logits = logits[indices]
-            # selected_boxes = boxes[indices][:, [0, 2]]
             selected_boxes = boxes[indices]
-            labels = torch.argmax(selected_logits, dim=1) - 1
-            labels = torch.clamp(labels, min=0)
-            #check for stupid -1 bug
+            labels = torch.argmax(selected_logits, dim=1) #removed the -1
+            # labels = torch.clamp(labels, min=0)
             assert all(label != -1 for label in labels), f"labels: {labels} \n"
 
             ret_od_targets.append({"labels": labels, "boxes": selected_boxes})

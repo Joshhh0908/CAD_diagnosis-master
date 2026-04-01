@@ -31,29 +31,6 @@ def normalize_ct_data(data_array, hu_min=-200, hu_max=800):
     return normalized_array
 
 
-def _3d_cubes_selection(input_volume, cube_size, num_cubes, step, batch_size):
-
-    b, n_l, n_h, n_w = input_volume.shape
-    centers = [step // 2 + step * i - 1 for i in range(num_cubes)]
-    output_cubes = torch.zeros((batch_size, len(centers), cube_size, cube_size, cube_size), device=input_volume.device)
-
-    for i, center in enumerate(centers):
-        start = center - cube_size // 2
-        end = start + cube_size
-        set_start, set_end = 0, cube_size
-        if start < 0:
-            set_start -= start
-            start = 0
-        if end > n_l:
-            set_end = cube_size - (end - n_l)
-            end = n_l
-        cut_start, cut_end = int(n_h / 2 - cube_size // 2), int(n_h / 2 + cube_size // 2 + 1)
-        output_cubes[:, i, set_start: set_end, :, :] = input_volume[:, start:end,
-                                                                    cut_start: cut_end,
-                                                                    cut_start: cut_end]
-    return output_cubes
-
-
 def number_parameters(Net, type_size=8):
     para = sum([np.prod(list(p.size())) for p in Net.parameters()])
     return para / 1024 * type_size / 1024
@@ -67,44 +44,6 @@ def gradient_preference(*input_tensors):
         else:
             numpy_arrays.append(tensor)
     return numpy_arrays
-
-
-# class HungarianMatcherOLD(nn.Module):
-#     def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1):
-#         super().__init__()
-
-#         self.cost_class = cost_class
-#         self.cost_bbox = cost_bbox
-#         self.cost_giou = cost_giou
-#         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
-
-#     def forward(self, outputs, targets):
-
-#         bs, num_queries = outputs["pred_logits"].shape[:2]
-
-#         out_prob = outputs["pred_logits"].flatten(0, 1).softmax(-1)
-#         out_bbox = outputs["pred_boxes"].flatten(0, 1)
-#         tgt_ids = torch.cat([v["labels"] for v in targets])
-#         tgt_bbox = torch.cat([v["boxes"] for v in targets])
-#         tgt_ids = tgt_ids.to(dtype=torch.long)
-
-#         numpy_array_group = gradient_preference(out_prob, out_bbox, tgt_ids, tgt_bbox)
-#         out_prob, out_bbox, tgt_ids, tgt_bbox = numpy_array_group[0], numpy_array_group[1],\
-#                                                 numpy_array_group[2], numpy_array_group[3]
-
-#         if tgt_ids.numel() == 0:
-#             return [(torch.empty(0, dtype=torch.int64), torch.empty(0, dtype=torch.int64)) for _ in range(bs)]
-
-#         cost_class = -out_prob[:, tgt_ids]
-#         cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
-#         cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
-
-#         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
-#         C = C.view(bs, num_queries, -1).cpu()
-
-#         sizes = [len(v["boxes"]) for v in targets]
-#         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
-#         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
     
 class HungarianMatcher(nn.Module):
     def __init__(self, cost_class: float = 1, cost_bbox: float = 3, cost_giou: float = 1):
@@ -170,25 +109,6 @@ def generalized_box_iou_1d(boxes1, boxes2):
 
     giou = iou - (enclosing_len - union) / (enclosing_len + 1e-6)
     return giou
-
-# def box_lastdim_expansion(data):
-
-#     if is_empty_tensor(data) == True:
-#         return data
-
-#     expanded_data = data.unsqueeze(-2).expand(*data.shape[:-1], 2, 2).reshape(*data.shape[:-1], 4)
-#     return expanded_data[..., [0, 2, 1, 3]]
-
-
-# def boxes_dimension_expansion(data, dtype='outputs'):
-
-#     if dtype == 'outputs':
-#         data["pred_boxes"] = box_lastdim_expansion(data["pred_boxes"])
-#     if dtype == 'targets':
-#         for tmp_data in data:
-#             tmp_data["boxes"] = box_lastdim_expansion(tmp_data["boxes"])
-#     return data
-
 
 class SmoothedValue(object):
     def __init__(self, window_size=20, fmt=None):
@@ -598,50 +518,6 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
     else:
         return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
 
-
-# def box_cxcywh_to_xyxy(x):
-#     x_c, y_c, w, h = x.unbind(-1)
-#     b = [(x_c - 0.5 * w), (y_c - 0.5 * h),
-#          (x_c + 0.5 * w), (y_c + 0.5 * h)]
-#     return torch.stack(b, dim=-1)
-
-
-# def box_xyxy_to_cxcywh(x):
-#     x0, y0, x1, y1 = x.unbind(-1)
-#     b = [(x0 + x1) / 2, (y0 + y1) / 2,
-#          (x1 - x0), (y1 - y0)]
-#     return torch.stack(b, dim=-1)
-
-
-def box_iou(boxes1, boxes2):
-    area1 = box_area(boxes1)
-    area2 = box_area(boxes2)
-
-    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])
-    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])
-
-    wh = (rb - lt).clamp(min=0)
-    inter = wh[:, :, 0] * wh[:, :, 1]
-
-    union = area1[:, None] + area2 - inter
-
-    iou = inter / union
-    return iou, union
-
-
-def generalized_box_iou(boxes1, boxes2):
-
-    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
-    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
-    iou, union = box_iou(boxes1, boxes2)
-
-    lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])
-    rb = torch.max(boxes1[:, None, 2:], boxes2[:, 2:])
-
-    wh = (rb - lt).clamp(min=0)
-    area = wh[:, :, 0] * wh[:, :, 1]
-
-    return iou - (area - union) / area
 
 
 def masks_to_boxes(masks):
