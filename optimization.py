@@ -50,7 +50,7 @@ class object_detection_loss(nn.Module):
         # loss_giou = 1 - torch.diag(funcs.generalized_box_iou(funcs.box_cxcywh_to_xyxy(src_boxes),
         #                                                     funcs.box_cxcywh_to_xyxy(target_boxes)))
         loss_giou = 1 - torch.diag(funcs.generalized_box_iou_1d(src_boxes, target_boxes))
-
+        # NEED TO ADD HYPERPARAMETER WEIGHTS OF 5 AND 2 ACCORDING TO PAPER
         return loss_bbox.sum() / num_boxes + loss_giou.sum() / num_boxes
 
     def _get_src_permutation_idx(self, indices):

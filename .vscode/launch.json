@@ -5,7 +5,7 @@
             "name": "Debug train",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/visualisation.py",
+            "program": "${workspaceFolder}/vessel_vis.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "python": "/home/joshua/miniconda3/envs/STCN/bin/python",
