@@ -28,17 +28,18 @@ CLASS_COLORS = {
 
 # ── utility ──────────────────────────────────────────────────
 
+
 def get_labeled_segments(label_array):
-    """Contiguous runs of SAME non-zero label -> list of (start, end, label)."""
-    segments, in_seg, current_label, start = [], False, 0, 0
+    """Contiguous runs of SAME non-background label -> list of (start, end, label)."""
+    segments, in_seg, current_label, start = [], False, 0, BG_IDX
     for i, v in enumerate(label_array):
         v = int(v)
-        if v != 0 and not in_seg:
+        if v != BG_IDX and not in_seg:  # Skip background (class 6)
             start, in_seg, current_label = i, True, v
-        elif v != 0 and in_seg and v != current_label:
+        elif v != BG_IDX and in_seg and v != current_label:
             segments.append((start, i - 1, current_label))
             start, current_label = i, v
-        elif v == 0 and in_seg:
+        elif v == BG_IDX and in_seg:  # End segment if background is encountered
             segments.append((start, i - 1, current_label))
             in_seg = False
     if in_seg:
@@ -52,7 +53,7 @@ def get_contiguous_segments(binary_array):
     for i, v in enumerate(binary_array):
         if v == 1 and not in_seg:
             start, in_seg = i, True
-        elif v == 0 and in_seg:
+        elif v == BG_IDX and in_seg:
             segments.append((start, i - 1))
             in_seg = False
     if in_seg:
@@ -83,7 +84,7 @@ def boxes_to_slice_labels(pred_logits, pred_boxes, volume_depth, score_thresh):
     of length volume_depth (0 = background).
     Each query votes on a slice range; highest-scoring non-bg wins per slice.
     """
-    slice_labels = np.zeros(volume_depth, dtype=np.int32)
+    slice_labels = np.full(volume_depth, BG_IDX, dtype=np.int32)
     slice_scores = np.zeros(volume_depth, dtype=np.float32)
 
     scores, labels = pred_logits.max(dim=-1)   # (num_queries,)
@@ -115,8 +116,8 @@ def make_label_bar(label_array, length):
     img = np.zeros((bar_h, length, 3), dtype=np.float32)
     for z in range(length):
         lbl = int(label_array[z])
-        if lbl != 0:
-            img[:, z, :] = CLASS_COLORS.get(lbl - 1, [0.5, 0.5, 0.5])
+        if lbl != BG_IDX:
+            img[:, z, :] = CLASS_COLORS.get(lbl, [0.5, 0.5, 0.5])
     return img
 
 
@@ -137,13 +138,13 @@ def save_visualization(vol_np, gt_label_array, pred_label_array,
     longit_norm = np.clip((longit - vmin) / (vmax - vmin + 1e-6), 0, 1)
 
     # per-sample stats for title
-    v_gt   = int((gt_label_array[:valid_len]   > 0).max()) if valid_len > 0 else 0
-    v_pred = int((pred_label_array[:valid_len] > 0).max()) if valid_len > 0 else 0
+    v_gt   = int((gt_label_array[:valid_len]   < BG_IDX).min()) if valid_len > 0 else 0
+    v_pred = int((pred_label_array[:valid_len] < BG_IDX).min()) if valid_len > 0 else 0
     v_ok   = "✓" if v_gt == v_pred else "✗"
 
     n_lesions  = len(gt_segs)
     n_detected = sum(1 for s in gt_segs
-                     if segments_overlap(s, (pred_label_array > 0).astype(np.int32)))
+                     if segments_overlap(s, (pred_label_array < BG_IDX).astype(np.int32)))
     n_missed   = n_lesions - n_detected
     n_fp       = sum(1 for ps in pred_segs
                      if not any(not (ps[1] < gs[0] or ps[0] > gs[1])
@@ -232,7 +233,7 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
     per_sample = []
 
     sample_idx = 0
-    for images, targets in tqdm(test_loader, desc='Evaluating'):
+    for images, targets, names in tqdm(test_loader, desc='Evaluating'):
         images = images.to(device)
         with torch.no_grad():
             od_outputs = model(images)
@@ -240,25 +241,16 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
         pred_logits = od_outputs['pred_logits']   # (B, num_queries, num_classes+1)
         pred_boxes  = od_outputs['pred_boxes']    # (B, num_queries, 2)
 
-        # DEBUG — print raw output of first batch only
-        if sample_idx == 0:
-            print(f"\nRaw pred_logits shape: {pred_logits.shape}")
-            print(f"Raw pred_boxes shape:  {pred_boxes.shape}")
-            print(f"pred_logits[0] sample:\n{pred_logits[0][:3]}")   # first 3 queries
-            print(f"pred_boxes[0] sample:\n{pred_boxes[0][:3]}")
-            print(f"pred_logits[0] argmax: {pred_logits[0].argmax(dim=-1)}")
-            print(f"pred_logits[0] max scores: {pred_logits[0].max(dim=-1).values}")
-
         for b in range(images.shape[0]):
-            name = f"sample_{sample_idx:04d}"
+            name = names[b]
 
             gt_labels = targets[b]['labels'].cpu()   # (num_gt,) 0-indexed classes
             gt_boxes  = targets[b]['boxes'].cpu()    # (num_gt, 2) normalised
 
             # build per-slice GT label array from boxes
-            gt_label_array = np.zeros(volume_depth, dtype=np.int32)
+            gt_label_array = np.full(volume_depth, BG_IDX, dtype=np.int32)
             for k in range(len(gt_labels)):
-                lbl = gt_labels[k].item() + 1   # back to 1-indexed
+                lbl = gt_labels[k].item()
                 s = int(gt_boxes[k, 0].item() * volume_depth)
                 e = int(gt_boxes[k, 1].item() * volume_depth)
                 s = max(0, min(s, volume_depth - 1))
@@ -271,22 +263,23 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
                 volume_depth, score_thresh)
 
             valid_len = volume_depth   # already fixed shape from dataloader
+            assert valid_len > 0
             gt_segs   = get_labeled_segments(gt_label_array[:valid_len])
             pred_segs = get_contiguous_segments(
-                (pred_label_array[:valid_len] > 0).astype(np.int32))
+                (pred_label_array[:valid_len] < BG_IDX).astype(np.int32))
 
             # vessel-level
-            v_gt   = int((gt_label_array[:valid_len]   > 0).max()) if valid_len > 0 else 0
-            v_pred = int((pred_label_array[:valid_len] > 0).max()) if valid_len > 0 else 0
+            v_gt   = int((gt_label_array[:valid_len]   < BG_IDX).max()) 
+            v_pred = int((pred_label_array[:valid_len] < BG_IDX).max()) 
             vessel_gt_list.append(v_gt)
             vessel_pred_list.append(v_pred)
 
             # lesion-instance-level
             vol_TP, vol_FN, vol_FP = 0, 0, 0
-            if v_gt == 0 and v_pred == 0:
+            if v_gt == BG_IDX and v_pred == BG_IDX:
                 lesion_TN += 1
             for seg in gt_segs:
-                if segments_overlap(seg, (pred_label_array > 0).astype(np.int32)):
+                if segments_overlap(seg, (pred_label_array < BG_IDX).astype(np.int32)):
                     lesion_TP += 1; vol_TP += 1
                 else:
                     lesion_FN += 1; vol_FN += 1
@@ -298,9 +291,9 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
             for z in range(valid_len):
                 gt_lbl = int(gt_label_array[z])
                 pr_lbl = int(pred_label_array[z])
-                if gt_lbl > 0:
-                    all_gt_cls.append(gt_lbl - 1)
-                    all_pred_cls.append(pr_lbl - 1 if pr_lbl > 0 else BG_IDX)
+                if gt_lbl != BG_IDX:
+                    all_gt_cls.append(gt_lbl)
+                    all_pred_cls.append(pr_lbl)
 
             per_sample.append({
                 'name':           name,
@@ -391,7 +384,7 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
                     f"{r['lesion_TP']:>4} {r['lesion_FN']:>4} {r['lesion_FP']:>4} "
                     f"{r['vessel_gt']:>5} {r['vessel_pred']:>6}  {v_ok}\n")
 
-    print(f"\nVessel-level — P:{m_v['precision']:.4f} R:{m_v['recall']:.4f} "
+    print(f"\nVessel-level: P:{m_v['precision']:.4f} R:{m_v['recall']:.4f} "
           f"F1:{m_v['f1']:.4f} Acc:{m_v['accuracy']:.4f}")
     print(f"Results saved to : {stats_path}")
     print(f"PNGs saved to    : {vis_dir}/")
@@ -399,9 +392,9 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda',
 
 if __name__ == '__main__':
     evaluate(
-        checkpoint_path='/home/joshua/CAD_diagnosis-master/model_58x40x8_reducedLR/model_58x40x8_reducedLR_warmup_epoch015.pth',
-        out_dir='eval_results',
-        device='cuda',
+        checkpoint_path='/home/joshua/CAD_diagnosis-master/model_58x40x8_unchanged_labels_epoch026.pth',
+        out_dir='eval_results_unchanged_labels_epoch026_no_shift',
+        device='cuda:0',
         score_thresh=0.01,
         iou_thresh=0.1,
     )

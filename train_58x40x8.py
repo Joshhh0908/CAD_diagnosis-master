@@ -52,27 +52,19 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
         train_bar = tqdm(train_loader, 
                          desc=f"Epoch {epoch+1}/{num_epochs} [Train]",
                          leave=False)
-        for images, targets in train_bar:
+        for images, targets, _ in train_bar:
             images = images.to(device)
+            #debug target ranges
+            # x = set([label for t in targets for label in t["labels"]])
+            # print(min(x), max(x))
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
+            
             od_outputs, sc_outputs = model(images)
             #box checking debug
-            boxes = od_outputs["pred_boxes"].reshape(-1, 2)
-            mask = boxes[:, 1] > boxes[:, 0]
+            # boxes = od_outputs["pred_boxes"].reshape(-1, 2)
+            # mask = boxes[:, 1] > boxes[:, 0]
             
             loss = loss_fn(od_outputs, sc_outputs, targets)
-
-            # DEBUG — first batch of every epoch
-            if first_batch:
-                first_batch = False
-                with torch.no_grad():
-                    probs = torch.softmax(od_outputs['pred_logits'], dim=-1)
-                    bg_prob    = probs[:, :, -1].mean().item()
-                    max_lesion = probs[:, :, :-1].max().item()
-                    gt_count   = sum(len(t['boxes']) for t in targets)
-                    log.info(f"  [DIAG e{epoch+1:03d}] bg={bg_prob:.3f} max_lesion={max_lesion:.3f} lr={scheduler.get_last_lr()[0]:.2e}")
-
 
             optimizer.zero_grad()
             loss.backward()
@@ -96,7 +88,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                        desc=f"Epoch {epoch+1}/{num_epochs} [Val]  ",
                        leave=False)
         with torch.no_grad():
-            for images, targets in val_bar:
+            for images, targets, _ in val_bar:
                 images = images.to(device)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 od_outputs, sc_outputs = model(images)
@@ -129,4 +121,4 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                 f"saved: {epoch_path}"
                 f"{marker}")
 if __name__ == '__main__':
-    train(lr=1e-5, num_epochs=75, device='cuda:0', save_path='model_58x40x8_unchanged_labels')
+    train(lr=1e-5, num_epochs=75, device='cuda:0', save_path='debugger')

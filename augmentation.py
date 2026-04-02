@@ -97,7 +97,8 @@ class cubic_sequence_data(data.Dataset):
 
         return {
             'image':  torch.tensor(vol, dtype=torch.float32),
-            'target': self.detection_targets(labels)
+            'target': self.detection_targets(labels),# 0 indexed targets
+            'name': name
         }
 
     def __len__(self):

@@ -1,2 +1,78 @@
 2026-04-01 17:10:01,085 Starting training — save_path=model_58x40x8_unchanged_labels lr=1e-05 device=cuda:0
 2026-04-01 17:10:06,219   [DIAG e001] bg=0.121 max_lesion=0.226 lr=1.00e-06
+2026-04-01 17:54:52,033 Epoch 001/75 | train: 5.2515 | val: 4.3913 | lr: 2.00e-06 | saved: model_58x40x8_unchanged_labels_epoch001.pth *
+2026-04-01 18:10:54,160 Epoch 002/75 | train: 4.5907 | val: 4.4834 | lr: 3.00e-06 | saved: model_58x40x8_unchanged_labels_epoch002.pth
+2026-04-01 18:26:58,062 Epoch 003/75 | train: 4.4933 | val: 4.2968 | lr: 4.00e-06 | saved: model_58x40x8_unchanged_labels_epoch003.pth *
+2026-04-01 18:43:02,911 Epoch 004/75 | train: 4.5855 | val: 4.6347 | lr: 5.00e-06 | saved: model_58x40x8_unchanged_labels_epoch004.pth
+2026-04-01 18:59:07,658 Epoch 005/75 | train: 4.6080 | val: 4.5997 | lr: 6.00e-06 | saved: model_58x40x8_unchanged_labels_epoch005.pth
+2026-04-01 19:15:14,161 Epoch 006/75 | train: 4.5496 | val: 4.3985 | lr: 7.00e-06 | saved: model_58x40x8_unchanged_labels_epoch006.pth
+2026-04-01 19:31:20,093 Epoch 007/75 | train: 4.4187 | val: 4.5268 | lr: 8.00e-06 | saved: model_58x40x8_unchanged_labels_epoch007.pth
+2026-04-01 19:47:28,271 Epoch 008/75 | train: 4.3488 | val: 4.1336 | lr: 9.00e-06 | saved: model_58x40x8_unchanged_labels_epoch008.pth *
+2026-04-01 20:03:40,471 Epoch 009/75 | train: 4.2388 | val: 4.3477 | lr: 1.00e-05 | saved: model_58x40x8_unchanged_labels_epoch009.pth
+2026-04-01 20:20:00,313 Epoch 010/75 | train: 4.1295 | val: 3.9068 | lr: 1.00e-05 | saved: model_58x40x8_unchanged_labels_epoch010.pth *
+2026-04-01 20:36:11,571 Epoch 011/75 | train: 4.0708 | val: 4.0322 | lr: 9.99e-06 | saved: model_58x40x8_unchanged_labels_epoch011.pth
+2026-04-01 20:52:20,177 Epoch 012/75 | train: 4.0158 | val: 3.8733 | lr: 9.98e-06 | saved: model_58x40x8_unchanged_labels_epoch012.pth *
+2026-04-01 21:08:42,338 Epoch 013/75 | train: 3.9864 | val: 3.7809 | lr: 9.95e-06 | saved: model_58x40x8_unchanged_labels_epoch013.pth *
+2026-04-01 21:24:48,316 Epoch 014/75 | train: 3.9284 | val: 4.2127 | lr: 9.91e-06 | saved: model_58x40x8_unchanged_labels_epoch014.pth
+2026-04-01 21:40:57,073 Epoch 015/75 | train: 3.9081 | val: 3.9508 | lr: 9.85e-06 | saved: model_58x40x8_unchanged_labels_epoch015.pth
+2026-04-01 21:57:06,438 Epoch 016/75 | train: 3.9031 | val: 3.9750 | lr: 9.79e-06 | saved: model_58x40x8_unchanged_labels_epoch016.pth
+2026-04-01 22:13:15,854 Epoch 017/75 | train: 3.8630 | val: 3.8449 | lr: 9.72e-06 | saved: model_58x40x8_unchanged_labels_epoch017.pth
+2026-04-01 22:29:24,122 Epoch 018/75 | train: 3.8032 | val: 3.8355 | lr: 9.63e-06 | saved: model_58x40x8_unchanged_labels_epoch018.pth
+2026-04-01 22:45:32,137 Epoch 019/75 | train: 3.7555 | val: 3.8647 | lr: 9.53e-06 | saved: model_58x40x8_unchanged_labels_epoch019.pth
+2026-04-01 23:01:40,710 Epoch 020/75 | train: 3.7354 | val: 3.7953 | lr: 9.43e-06 | saved: model_58x40x8_unchanged_labels_epoch020.pth
+2026-04-01 23:17:50,205 Epoch 021/75 | train: 3.6923 | val: 3.8256 | lr: 9.31e-06 | saved: model_58x40x8_unchanged_labels_epoch021.pth
+2026-04-01 23:33:58,112 Epoch 022/75 | train: 3.6679 | val: 3.9172 | lr: 9.18e-06 | saved: model_58x40x8_unchanged_labels_epoch022.pth
+2026-04-01 23:50:05,917 Epoch 023/75 | train: 3.6436 | val: 3.8974 | lr: 9.05e-06 | saved: model_58x40x8_unchanged_labels_epoch023.pth
+2026-04-02 00:06:15,378 Epoch 024/75 | train: 3.5979 | val: 3.9640 | lr: 8.90e-06 | saved: model_58x40x8_unchanged_labels_epoch024.pth
+2026-04-02 00:22:23,929 Epoch 025/75 | train: 3.5272 | val: 4.0894 | lr: 8.74e-06 | saved: model_58x40x8_unchanged_labels_epoch025.pth
+2026-04-02 00:38:34,701 Epoch 026/75 | train: 3.5277 | val: 3.7765 | lr: 8.58e-06 | saved: model_58x40x8_unchanged_labels_epoch026.pth *
+2026-04-02 00:54:45,636 Epoch 027/75 | train: 3.4836 | val: 3.7931 | lr: 8.41e-06 | saved: model_58x40x8_unchanged_labels_epoch027.pth
+2026-04-02 01:10:55,922 Epoch 028/75 | train: 3.4110 | val: 3.8662 | lr: 8.22e-06 | saved: model_58x40x8_unchanged_labels_epoch028.pth
+2026-04-02 01:27:05,155 Epoch 029/75 | train: 3.3620 | val: 4.0670 | lr: 8.04e-06 | saved: model_58x40x8_unchanged_labels_epoch029.pth
+2026-04-02 01:43:15,176 Epoch 030/75 | train: 3.3332 | val: 3.9789 | lr: 7.84e-06 | saved: model_58x40x8_unchanged_labels_epoch030.pth
+2026-04-02 01:59:24,123 Epoch 031/75 | train: 3.2666 | val: 4.0307 | lr: 7.64e-06 | saved: model_58x40x8_unchanged_labels_epoch031.pth
+2026-04-02 02:15:32,403 Epoch 032/75 | train: 3.2404 | val: 4.0559 | lr: 7.43e-06 | saved: model_58x40x8_unchanged_labels_epoch032.pth
+2026-04-02 02:31:41,173 Epoch 033/75 | train: 3.1843 | val: 4.3284 | lr: 7.22e-06 | saved: model_58x40x8_unchanged_labels_epoch033.pth
+2026-04-02 02:47:51,083 Epoch 034/75 | train: 3.1178 | val: 4.3106 | lr: 7.00e-06 | saved: model_58x40x8_unchanged_labels_epoch034.pth
+2026-04-02 03:04:00,578 Epoch 035/75 | train: 3.0838 | val: 4.0987 | lr: 6.77e-06 | saved: model_58x40x8_unchanged_labels_epoch035.pth
+2026-04-02 03:20:10,626 Epoch 036/75 | train: 3.0591 | val: 4.0435 | lr: 6.55e-06 | saved: model_58x40x8_unchanged_labels_epoch036.pth
+2026-04-02 03:36:19,717 Epoch 037/75 | train: 2.9243 | val: 4.2479 | lr: 6.31e-06 | saved: model_58x40x8_unchanged_labels_epoch037.pth
+2026-04-02 03:52:30,055 Epoch 038/75 | train: 2.8968 | val: 4.3469 | lr: 6.08e-06 | saved: model_58x40x8_unchanged_labels_epoch038.pth
+2026-04-02 04:08:39,185 Epoch 039/75 | train: 2.8604 | val: 4.7626 | lr: 5.84e-06 | saved: model_58x40x8_unchanged_labels_epoch039.pth
+2026-04-02 04:24:49,164 Epoch 040/75 | train: 2.8538 | val: 4.3570 | lr: 5.60e-06 | saved: model_58x40x8_unchanged_labels_epoch040.pth
+2026-04-02 04:40:59,459 Epoch 041/75 | train: 2.8338 | val: 4.4856 | lr: 5.36e-06 | saved: model_58x40x8_unchanged_labels_epoch041.pth
+2026-04-02 04:57:10,116 Epoch 042/75 | train: 2.7533 | val: 4.6978 | lr: 5.12e-06 | saved: model_58x40x8_unchanged_labels_epoch042.pth
+2026-04-02 05:13:19,172 Epoch 043/75 | train: 2.6892 | val: 4.4808 | lr: 4.88e-06 | saved: model_58x40x8_unchanged_labels_epoch043.pth
+2026-04-02 05:29:28,741 Epoch 044/75 | train: 2.6732 | val: 4.5487 | lr: 4.64e-06 | saved: model_58x40x8_unchanged_labels_epoch044.pth
+2026-04-02 05:45:38,503 Epoch 045/75 | train: 2.6166 | val: 4.7047 | lr: 4.40e-06 | saved: model_58x40x8_unchanged_labels_epoch045.pth
+2026-04-02 06:01:48,388 Epoch 046/75 | train: 2.5940 | val: 4.9052 | lr: 4.16e-06 | saved: model_58x40x8_unchanged_labels_epoch046.pth
+2026-04-02 06:17:58,214 Epoch 047/75 | train: 2.5651 | val: 4.5313 | lr: 3.92e-06 | saved: model_58x40x8_unchanged_labels_epoch047.pth
+2026-04-02 06:34:07,579 Epoch 048/75 | train: 2.5244 | val: 4.9397 | lr: 3.69e-06 | saved: model_58x40x8_unchanged_labels_epoch048.pth
+2026-04-02 06:50:17,485 Epoch 049/75 | train: 2.4651 | val: 4.8076 | lr: 3.45e-06 | saved: model_58x40x8_unchanged_labels_epoch049.pth
+2026-04-02 07:06:26,217 Epoch 050/75 | train: 2.4531 | val: 4.9731 | lr: 3.23e-06 | saved: model_58x40x8_unchanged_labels_epoch050.pth
+2026-04-02 07:22:37,751 Epoch 051/75 | train: 2.4491 | val: 4.9388 | lr: 3.00e-06 | saved: model_58x40x8_unchanged_labels_epoch051.pth
+2026-04-02 07:38:48,531 Epoch 052/75 | train: 2.3497 | val: 4.9658 | lr: 2.78e-06 | saved: model_58x40x8_unchanged_labels_epoch052.pth
+2026-04-02 07:54:57,200 Epoch 053/75 | train: 2.3774 | val: 5.0125 | lr: 2.57e-06 | saved: model_58x40x8_unchanged_labels_epoch053.pth
+2026-04-02 08:11:05,139 Epoch 054/75 | train: 2.3060 | val: 5.0360 | lr: 2.36e-06 | saved: model_58x40x8_unchanged_labels_epoch054.pth
+2026-04-02 08:27:12,571 Epoch 055/75 | train: 2.2971 | val: 5.0394 | lr: 2.16e-06 | saved: model_58x40x8_unchanged_labels_epoch055.pth
+2026-04-02 08:43:20,912 Epoch 056/75 | train: 2.2792 | val: 5.3547 | lr: 1.96e-06 | saved: model_58x40x8_unchanged_labels_epoch056.pth
+2026-04-02 08:59:26,937 Epoch 057/75 | train: 2.2669 | val: 5.1142 | lr: 1.78e-06 | saved: model_58x40x8_unchanged_labels_epoch057.pth
+2026-04-02 09:15:33,412 Epoch 058/75 | train: 2.2318 | val: 5.2918 | lr: 1.59e-06 | saved: model_58x40x8_unchanged_labels_epoch058.pth
+2026-04-02 09:31:38,112 Epoch 059/75 | train: 2.2388 | val: 5.2230 | lr: 1.42e-06 | saved: model_58x40x8_unchanged_labels_epoch059.pth
+2026-04-02 09:47:45,587 Epoch 060/75 | train: 2.2106 | val: 5.3485 | lr: 1.26e-06 | saved: model_58x40x8_unchanged_labels_epoch060.pth
+2026-04-02 10:03:52,787 Epoch 061/75 | train: 2.1903 | val: 5.1916 | lr: 1.10e-06 | saved: model_58x40x8_unchanged_labels_epoch061.pth
+2026-04-02 10:20:00,125 Epoch 062/75 | train: 2.1429 | val: 5.1364 | lr: 9.55e-07 | saved: model_58x40x8_unchanged_labels_epoch062.pth
+2026-04-02 10:36:07,343 Epoch 063/75 | train: 2.1420 | val: 5.4449 | lr: 8.18e-07 | saved: model_58x40x8_unchanged_labels_epoch063.pth
+2026-04-02 10:52:13,915 Epoch 064/75 | train: 2.1456 | val: 5.3860 | lr: 6.90e-07 | saved: model_58x40x8_unchanged_labels_epoch064.pth
+2026-04-02 11:08:24,463 Epoch 065/75 | train: 2.1507 | val: 5.2945 | lr: 5.73e-07 | saved: model_58x40x8_unchanged_labels_epoch065.pth
+2026-04-02 11:25:08,966 Epoch 066/75 | train: 2.1437 | val: 5.3794 | lr: 4.66e-07 | saved: model_58x40x8_unchanged_labels_epoch066.pth
+2026-04-02 11:41:44,060 Epoch 067/75 | train: 2.1265 | val: 5.2942 | lr: 3.69e-07 | saved: model_58x40x8_unchanged_labels_epoch067.pth
+2026-04-02 11:58:35,852 Epoch 068/75 | train: 2.0933 | val: 5.2838 | lr: 2.83e-07 | saved: model_58x40x8_unchanged_labels_epoch068.pth
+2026-04-02 12:15:12,035 Epoch 069/75 | train: 2.0989 | val: 5.3979 | lr: 2.09e-07 | saved: model_58x40x8_unchanged_labels_epoch069.pth
+2026-04-02 12:31:38,182 Epoch 070/75 | train: 2.1217 | val: 5.3854 | lr: 1.45e-07 | saved: model_58x40x8_unchanged_labels_epoch070.pth
+2026-04-02 12:47:55,362 Epoch 071/75 | train: 2.1147 | val: 5.3113 | lr: 9.31e-08 | saved: model_58x40x8_unchanged_labels_epoch071.pth
+2026-04-02 13:04:24,354 Epoch 072/75 | train: 2.0825 | val: 5.3253 | lr: 5.25e-08 | saved: model_58x40x8_unchanged_labels_epoch072.pth
+2026-04-02 13:20:40,930 Epoch 073/75 | train: 2.1036 | val: 5.4406 | lr: 2.33e-08 | saved: model_58x40x8_unchanged_labels_epoch073.pth
+2026-04-02 13:36:54,818 Epoch 074/75 | train: 2.1172 | val: 5.4426 | lr: 5.84e-09 | saved: model_58x40x8_unchanged_labels_epoch074.pth
+2026-04-02 13:53:27,604 Epoch 075/75 | train: 2.0740 | val: 5.4892 | lr: 0.00e+00 | saved: model_58x40x8_unchanged_labels_epoch075.pth
+2026-04-02 14:08:44,306 Starting training — save_path=model_58x40x8_unchanged_labels lr=1e-05 device=cuda:0

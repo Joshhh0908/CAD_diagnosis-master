@@ -19,10 +19,12 @@ def count_classes(label_dir):
 
 print("TRAIN:")
 train_counts = count_classes(train)
+total_train = sum(train_counts.values())
 for cls in sorted(train_counts):
-    print(f"  class {cls}: {train_counts[cls]}")
+    print(f"  class {cls}: {train_counts[cls]} ({train_counts[cls]/total_train*100:.2f}%))")
 
 print("\nTEST:")
 test_counts = count_classes(test)
+total_test = sum(test_counts.values())
 for cls in sorted(test_counts):
-    print(f"  class {cls}: {test_counts[cls]}")
+    print(f"  class {cls}: {test_counts[cls]} ({test_counts[cls]/total_test*100:.2f}%))")

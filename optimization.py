@@ -12,7 +12,7 @@ class object_detection_loss(nn.Module):
         self.num_classes = num_classes
         self.matcher = matcher
         self.eos_coef = eos_coef
-        empty_weight = torch.ones(self.num_classes + 1)
+        empty_weight = torch.ones(self.num_classes + 1) #should be 7
         empty_weight[-1] = self.eos_coef
         self.register_buffer('empty_weight', empty_weight)
 
@@ -32,7 +32,6 @@ class object_detection_loss(nn.Module):
         if target_classes_o.numel() != 0:
             target_classes_o = target_classes_o.to(device=src_logits.device, dtype=torch.long) 
             target_classes[idx] = target_classes_o
-            print()
         else:
             empty_batch = True
 
@@ -68,7 +67,8 @@ class object_detection_loss(nn.Module):
 
         num_boxes = sum(len(t["labels"]) for t in targets)
         num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
-        num_boxes = torch.clamp(num_boxes / funcs.get_world_size(), min=1).item()
+        #this line... only working on one gpu so its unecessary? why clamp to min 1 if theres no boxes? remove the clamp
+        # num_boxes = torch.clamp(num_boxes / funcs.get_world_size(), min=1).item()
 
         loss_labels, empty_batch = self.loss_labels(outputs, targets, indices)
 
@@ -85,7 +85,7 @@ class sampling_point_classification_loss(nn.Module):
 
         self.num_classes = num_classes
         self.seq_length = seq_length
-
+    #CE without weight for background?
     def loss_labels(self, outputs, targets):
         return F.cross_entropy(outputs, targets)
 
@@ -107,6 +107,7 @@ def od2sc_targets(od_box_data, seq_length):
         tmp = torch.round(box_data['boxes'] *(seq_length + 1)).int()
         tmp = torch.clamp(tmp, min=1, max=seq_length) - 1
         #tmp is the start and end cube indes
+        # over here they do this clamp and -1 to make it 0 indexed i think
         #why just shift back one cube for what
         for k in range(tmp.shape[0]):
             point_data[tmp[k, 0]:tmp[k, 1] + 1] = box_data['labels'][k] #remove the +1, labels come in as 0-5 for lesions, 6 for bg
