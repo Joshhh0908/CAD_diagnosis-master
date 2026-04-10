@@ -3,7 +3,7 @@ import math
 import logging
 from framework import sc_net_framework
 from tqdm import tqdm
-from config_1 import opt as opt1
+from config import opt as opt1
 from functions import boxes_cw_to_se
 
 def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
@@ -133,4 +133,4 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                 f"saved: {epoch_path}"
                 f"{marker}")
 if __name__ == '__main__':
-    train(lr=1e-5, num_epochs=100, device='cuda:0', save_path='model_60x40x8_EOS_0.2')
+    train(lr=1e-5, num_epochs=100, device='cuda:0', save_path='model_32x25x8')

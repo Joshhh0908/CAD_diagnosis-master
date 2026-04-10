@@ -7,11 +7,11 @@ from torch.utils import data
 from torch.utils.data import DataLoader
 
 from architecture import spatio_temporal_semantic_learning
-from config_1 import opt
+from config import opt
 import functions as funcs
 import optimization as opt_fn
 import augmentation as aug
-from config_1 import opt as default_opt
+from config import opt as default_opt
 
 
 class sc_net_framework:

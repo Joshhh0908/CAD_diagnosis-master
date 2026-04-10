@@ -9,7 +9,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from tqdm import tqdm
 
 from framework import sc_net_framework
-from config_1 import opt
+from config import opt
 
 # ── label definitions ────────────────────────────────────────
 CLASS_NAMES = ['Normal', 'Non-Significant', 'Significant']
