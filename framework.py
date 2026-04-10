@@ -47,7 +47,7 @@ class sc_net_framework:
 
     def get_model(self):
         return spatio_temporal_semantic_learning(
-            num_classes=self.model_num_classes,
+            num_classes=self.model_num_classes + 1,
             pattern=self.model_pattern,
             ret_map=self.opt.net_params["ret_map"],
             in_channels=self.opt.net_params["in_channels"],
@@ -73,9 +73,11 @@ class sc_net_framework:
 
     def get_loss_fn(self):
         return opt_fn.spatio_temporal_contrast_loss(
-            num_classes=self.model_num_classes,
+            num_classes=self.model_num_classes + 1,
             seq_length=self.opt.net_params["cubeseq_length"],
-            eos_coef=self.opt.data_params["eos_coef"]
+            eos_coef=self.opt.data_params["eos_coef"],
+            length=self.opt.net_params["input_shape"][0],
+            step=self.opt.sc_params["_3d_cube_selection"][-1]
         )
 
     def get_dataloader(self):

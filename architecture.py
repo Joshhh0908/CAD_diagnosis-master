@@ -327,7 +327,7 @@ class spatio_temporal_semantic_learning(nn.Module):
                  ):
         super().__init__()
 
-        self.num_classes = num_classes + 1
+        self.num_classes = num_classes
         self.pattern = pattern
         self.ret_map = ret_map
 

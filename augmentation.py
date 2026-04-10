@@ -52,28 +52,25 @@ class cubic_sequence_data(data.Dataset):
 
     def detection_targets(self, labels_data):
         boxes, labels = [], []
-        start, label, length, last = None, 0, self.input_shape[0], -1
+        length = self.input_shape[0]
+        start, last = None, 0
 
         for i in range(labels_data.shape[0]):
             if start is not None:
                 if labels_data[i] != last:
-                    boxes.append([(start + 1) / length, min((i + 1) / length, 1.0)])
-                    labels.append(label - 1)
+                    boxes.append([(start) / length, min((i+1) / length, 1.0)])
+                    #note: end slice exclusive, ie lesion stops 1 slice before the end indicated
+                    labels.append(last)
                     if labels_data[i] != 0:
-                        start, label, last = i, labels_data[i], labels_data[i]
+                        start, last = i, labels_data[i]
                     else:
-                        start, label, last = None, 0, -1
-                else:
-                    continue
-            else:
-                if labels_data[i] == 0:
-                    start, label, last = None, 0, -1
-                else:
-                    start, label, last = i, labels_data[i], labels_data[i]
+                        start, last = None, 0
+            elif labels_data[i] != 0:
+                    start, last = i, labels_data[i]
 
         if start is not None:
-            boxes.append([(start + 1) / length, 1.0])
-            labels.append(label - 1)
+            boxes.append([(start) / length, 1.0])
+            labels.append(last)
 
         labels = torch.tensor(labels, dtype=torch.int64)
         boxes  = torch.tensor(boxes,  dtype=torch.float32)
@@ -107,12 +104,13 @@ class cubic_sequence_data(data.Dataset):
 
 def collate_fn(batch):
 
-    images, targets = [], []
+    images, targets, names = [], [], []
     for item in batch:
         images.append(item['image'])
         targets.append(item['target'])
+        names.append(item['name'])
     images = torch.stack(images, dim=0)
 
-    return images, targets
+    return images, targets, names
 
 

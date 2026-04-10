@@ -4,6 +4,7 @@ import logging
 from framework import sc_net_framework
 from tqdm import tqdm
 from config_1 import opt as opt1
+from functions import boxes_cw_to_se
 
 def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
     # set up log file
@@ -26,6 +27,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
     eval_loader = fw.dataLoader_eval
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+
     def warmup_then_cosine(epoch):
         if epoch < 10:
             return (epoch + 1) / 10
@@ -38,6 +40,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
     print(f"Device: {device}")
     print(f"Train batches: {len(train_loader)} | Val batches: {len(eval_loader)}")
     print(f"Starting training for {num_epochs} epochs\n")
+    
     first_batch = True
 
     for epoch in range(num_epochs):
@@ -52,19 +55,21 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
         train_bar = tqdm(train_loader, 
                          desc=f"Epoch {epoch+1}/{num_epochs} [Train]",
                          leave=False)
-        for images, targets, _ in train_bar:
+        for images, targets, names in train_bar:
             images = images.to(device)
-            #debug target ranges
-            # x = set([label for t in targets for label in t["labels"]])
-            # print(min(x), max(x))
+
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             
             od_outputs, sc_outputs = model(images)
-            #box checking debug
-            # boxes = od_outputs["pred_boxes"].reshape(-1, 2)
-            # mask = boxes[:, 1] > boxes[:, 0]
+            # convert boxes from [centre, width] to [start, end] here, before putting into loss fn
             
-            loss = loss_fn(od_outputs, sc_outputs, targets)
+            od_outputs_for_loss = dict(od_outputs)
+            od_outputs_for_loss["pred_boxes"] = boxes_cw_to_se(od_outputs["pred_boxes"])
+
+            # box checking debug
+            # boxes = od_outputs["pred_boxes"].reshape(-1, 2)
+
+            loss = loss_fn(od_outputs_for_loss, sc_outputs, targets)
 
             optimizer.zero_grad()
             loss.backward()
@@ -92,7 +97,14 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                 images = images.to(device)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 od_outputs, sc_outputs = model(images)
-                loss = loss_fn(od_outputs, sc_outputs, targets)
+                od_outputs_for_loss = dict(od_outputs)
+                od_outputs_for_loss["pred_boxes"] = boxes_cw_to_se(od_outputs["pred_boxes"])
+
+                # box checking debug
+                # boxes = od_outputs["pred_boxes"].reshape(-1, 2)
+
+                loss = loss_fn(od_outputs_for_loss, sc_outputs, targets)
+
                 val_loss += loss.item()
                 val_bar.set_postfix(loss=f"{loss.item():.4f}")
 
@@ -121,4 +133,4 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                 f"saved: {epoch_path}"
                 f"{marker}")
 if __name__ == '__main__':
-    train(lr=1e-5, num_epochs=75, device='cuda:0', save_path='debugger')
+    train(lr=1e-5, num_epochs=100, device='cuda:0', save_path='model_60x40x8_EOS_0.2')

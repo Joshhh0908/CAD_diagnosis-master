@@ -563,3 +563,17 @@ def masks_to_boxes(masks):
     y_min = y_mask.masked_fill(~(masks.bool()), 1e8).flatten(1).min(-1)[0]
 
     return torch.stack([x_min, y_min, x_max, y_max], 1)
+
+def center_of_cube(cube_idx, step):
+    return step // 2 + step * cube_idx - 1
+
+def boxes_cw_to_se(boxes):
+    """
+    Convert boxes from [center, width] to [start, end].
+
+    Supports shape (..., 2), e.g.
+    [num_boxes, 2] or [batch, num_queries, 2].
+    """
+    start = boxes[..., 0] - boxes[..., 1] / 2.0
+    end   = boxes[..., 0] + boxes[..., 1] / 2.0
+    return torch.stack((start, end), dim=-1)

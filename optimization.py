@@ -4,6 +4,7 @@ from torch import nn
 from einops import rearrange
 
 import functions as funcs
+from functions import center_of_cube
 
 
 class object_detection_loss(nn.Module):
@@ -12,8 +13,8 @@ class object_detection_loss(nn.Module):
         self.num_classes = num_classes
         self.matcher = matcher
         self.eos_coef = eos_coef
-        empty_weight = torch.ones(self.num_classes + 1) #should be 7
-        empty_weight[-1] = self.eos_coef
+        empty_weight = torch.ones(self.num_classes) #should be 7
+        empty_weight[0] = self.eos_coef
         self.register_buffer('empty_weight', empty_weight)
 
     def loss_labels(self, outputs, targets, indices):
@@ -24,7 +25,7 @@ class object_detection_loss(nn.Module):
         idx = self._get_src_permutation_idx(indices)
         empty_batch = False
 
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+        target_classes = torch.zeros(src_logits.shape[:2],
                                     dtype=torch.int64, device=src_logits.device)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
         
@@ -66,7 +67,7 @@ class object_detection_loss(nn.Module):
         indices = self.matcher(outputs, targets)
 
         num_boxes = sum(len(t["labels"]) for t in targets)
-        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
+        num_boxes = torch.as_tensor(num_boxes, dtype=torch.float, device=next(iter(outputs.values())).device)
         #this line... only working on one gpu so its unecessary? why clamp to min 1 if theres no boxes? remove the clamp
         # num_boxes = torch.clamp(num_boxes / funcs.get_world_size(), min=1).item()
 
@@ -104,7 +105,8 @@ def od2sc_targets(od_box_data, seq_length):
     for box_data in od_box_data:
         device = box_data['boxes'].device
         point_data = torch.zeros(seq_length, dtype=torch.long, device=device)
-        tmp = torch.round(box_data['boxes'] *(seq_length + 1)).int()
+        #TO CHECK, BG S 6 OR 0 
+        tmp = torch.round(box_data['boxes']*(seq_length + 1)).int()
         tmp = torch.clamp(tmp, min=1, max=seq_length) - 1
         #tmp is the start and end cube indes
         # over here they do this clamp and -1 to make it 0 indexed i think
@@ -122,31 +124,58 @@ def sc2od_targets(sc_point_data, seq_length):
         tmp_data = point_data['labels']
 
         boxes, labels = [], []
-        start, label, length, last = None, 0, seq_length, -1
+        length = seq_length
+        start, last = None, 0
 
         for i in range(tmp_data.shape[0]):
             if start is not None:
                 if tmp_data[i] != last:
-                    boxes.append([(start + 1) / length, min((i + 1) / length, 1.0)])
-                    # the start and i + 1 here is wrong, also wrong when ubild the data, why need to +1? 
-                    labels.append(label) #remove the -1, labels come in as 0-5 for lesions, 6 for bg
-                    #are we converting the labels correctly? 0 in txt file for bg, 6 in od? 0 or 6 in od?
-                    if tmp_data[i] != 0:
-                        start, label, last = i, tmp_data[i], tmp_data[i]
+                    boxes.append([(start) / length, min((i) / length, 1.0)]) #remove +1 to start and end. no need to change to 1 indexed
+                    labels.append(last) #remove the -1, 1-6 leisons, 0 bg
+
+                    if tmp_data[i] != 0: 
+                        start, last = i, tmp_data[i]
                     else:
-                        start, label, last = None, 0, -1
-                else:
-                    continue
-            else:
-                if tmp_data[i] == 0:
-                    start, label, last = None, 0, -1
-                else:
-                    start, label, last = i, tmp_data[i], tmp_data[i]
+                        start, last = None, 0
+            elif tmp_data[i] != 0: 
+                    start, last = i, tmp_data[i]
 
         if start is not None:
-            boxes.append([(start + 1) / length, 1.0])
-            labels.append(label) #remove the -1, labels come in as 0-5 for lesions, 6 for bg
+            boxes.append([(start) / length, 1.0])
+            labels.append(last) #remove the -1, labels come in as 1-6 lesions, 0 bg
+        boxes = torch.tensor(boxes, device=tmp_data.device)
+        labels = torch.tensor(labels, device=tmp_data.device)  
+        od_box_data.append({"labels": labels, "boxes": boxes})
+    return od_box_data
 
+def sc2od_targets_new(sc_point_data, step, length): #take in list of predictions for each sample pt
+    od_box_data = []
+    for point_data in sc_point_data:
+        tmp_data = point_data['labels']
+
+        boxes, labels = [], []
+        start, last = None, 0
+
+        for i in range(tmp_data.shape[0]):
+            if start is not None:
+                if tmp_data[i] != last:
+                    start_slice = center_of_cube(start, step)
+                    end_slice = center_of_cube(i, step)
+                    boxes.append([(start_slice) / length, min((end_slice + 1) / length, 1.0)]) #remove +1 to start and end. no need to change to 1 indexed
+                    #note: end slice exclusive, ie lesion stops 1 slice before the end indicated
+                    labels.append(last) #remove the -1, 1-6 leisons, 0 bg
+
+                    if tmp_data[i] != 0: 
+                        start, last = i, tmp_data[i]
+                    else:
+                        start, last = None, 0
+            elif tmp_data[i] != 0: 
+                    start, last = i, tmp_data[i]
+
+        if start is not None:
+            start_slice = center_of_cube(start, step)
+            boxes.append([(start_slice) / length, 1.0])
+            labels.append(last) #remove the -1, labels come in as 1-6 lesions, 0 bg
         boxes = torch.tensor(boxes, device=tmp_data.device)
         labels = torch.tensor(labels, device=tmp_data.device)  
         od_box_data.append({"labels": labels, "boxes": boxes})
@@ -154,13 +183,15 @@ def sc2od_targets(sc_point_data, seq_length):
 
 
 class dual_task_contrastive_loss(nn.Module):
-    def __init__(self, od_contrastive_loss, sc_contrastive_loss, seq_length):
+    def __init__(self, od_contrastive_loss, sc_contrastive_loss, seq_length, vessel_length, step):
         super().__init__()
 
         self.od_contrastive_loss = od_contrastive_loss
         self.sc_contrastive_loss = sc_contrastive_loss
         self.matcher = self.od_contrastive_loss.matcher
-        self.seq_length = seq_length
+        self.seq_length = seq_length #num_cubes
+        self.length = vessel_length
+        self.step = step
 
     def _get_object_detection_targets(self, sc_outputs):
 
@@ -168,7 +199,7 @@ class dual_task_contrastive_loss(nn.Module):
         for batch in sc_outputs["pred_logits"]:
             labels = torch.argmax(batch, dim=1)
             ret_sc_targets.append({"labels": labels})
-        return sc2od_targets(ret_sc_targets, self.seq_length)
+        return sc2od_targets_new(ret_sc_targets, self.step, self.length)
 
     def _get_sampling_point_classification_targets(self, od_outputs, od_targets):
 
@@ -186,7 +217,7 @@ class dual_task_contrastive_loss(nn.Module):
             # labels = torch.clamp(labels, min=0)
 
             ret_od_targets.append({"labels": labels, "boxes": selected_boxes})
-
+        #for box debugging (check the start>end thing)
         all_boxes = [x["boxes"] for x in ret_od_targets]
         return od2sc_targets(ret_od_targets, self.seq_length)
 
@@ -202,7 +233,7 @@ class dual_task_contrastive_loss(nn.Module):
 
 
 class spatio_temporal_contrast_loss(nn.Module):
-    def __init__(self, num_classes=2, seq_length=32, eos_coef=0.2):
+    def __init__(self, num_classes=2, seq_length=32, eos_coef=0.2, step=8, length=256):
         super().__init__()
 
         self.num_classes = num_classes
@@ -211,12 +242,21 @@ class spatio_temporal_contrast_loss(nn.Module):
 
         self.od_loss = object_detection_loss(num_classes=self.num_classes, eos_coef=self.eos_coef,
                                              matcher=funcs.HungarianMatcher())
-        self.sc_loss = sampling_point_classification_loss(num_classes=self.num_classes + 1, seq_length=self.seq_length)
-        self.dc_loss = dual_task_contrastive_loss(self.od_loss, self.sc_loss, seq_length=self.seq_length)
+        self.sc_loss = sampling_point_classification_loss(num_classes=self.num_classes, seq_length=self.seq_length)
+        self.dc_loss = dual_task_contrastive_loss(self.od_loss, self.sc_loss, seq_length=self.seq_length, vessel_length=length,step=step)
 
     def forward(self, od_outputs, sc_outputs, od_targets, delta=1):
 
-        ret_loss = self.dc_loss(od_outputs, sc_outputs, od_targets) * delta
-        ret_loss += self.od_loss(od_outputs, od_targets)
-        ret_loss += self.sc_loss(sc_outputs, od2sc_targets(od_targets, self.seq_length))
+        dc = self.dc_loss(od_outputs, sc_outputs, od_targets) * delta
+        od = self.od_loss(od_outputs, od_targets)
+        sc = self.sc_loss(sc_outputs, od2sc_targets(od_targets, self.seq_length))
+
+        # print("dc shape:", dc.shape, "value:", dc)
+        # print("od shape:", od.shape, "value:", od)
+        # print("sc shape:", sc.shape, "value:", sc)
+
+        ret_loss = dc
+        ret_loss = ret_loss + od
+        ret_loss = ret_loss + sc
+        
         return ret_loss

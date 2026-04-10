@@ -12,6 +12,7 @@ def vessel_name(vessel_label):
 
 def combined_score(p,s):
     """" 
+    0. bg
     1. NS, NC
     2. NS, M
     3. NS, C
