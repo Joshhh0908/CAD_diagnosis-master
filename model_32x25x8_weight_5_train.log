@@ -1,0 +1,10 @@
+2026-04-30 19:05:13,174 Starting training — save_path=model_32x25x8_weight_5 lr=3e-06 device=cuda:0
+2026-04-30 19:05:15,287   [DIAG e001] bg=0.111 max_lesion=0.209
+2026-04-30 19:06:54,030 Starting training — save_path=model_32x25x8_weight_5 lr=3e-06 device=cuda:0
+2026-04-30 19:06:55,947   [DIAG e001] bg=0.140 max_lesion=0.246
+2026-04-30 19:09:03,923 Starting training — save_path=model_32x25x8_weight_5 lr=3e-06 device=cuda:0
+2026-04-30 19:09:06,178   [DIAG e001] bg=0.181 max_lesion=0.219
+2026-04-30 19:15:54,622 Starting training — save_path=model_32x25x8_weight_5 lr=3e-06 device=cuda:0
+2026-04-30 19:15:56,794   [DIAG e001] bg=0.135 max_lesion=0.182
+2026-05-04 09:55:25,171 Starting training — save_path=model_32x25x8_weight_5 lr=3e-06 device=cuda:0
+2026-05-04 09:55:27,287   [DIAG e001] bg=0.137 max_lesion=0.209

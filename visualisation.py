@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from tqdm import tqdm
+from functions import boxes_cw_to_se
 
 from framework import sc_net_framework
 from config import opt
@@ -172,7 +173,7 @@ def load_model(checkpoint_path, device, cfg):
 
 # ── main evaluate loop ────────────────────────────────────────
 
-def evaluate(checkpoint_path, out_dir='eval_results', device='cuda', score_thresh=0.05, iou_thresh=0.5):
+def evaluate(checkpoint_path, out_dir='eval_results', device='cuda', score_thresh=0.05):
     os.makedirs(out_dir, exist_ok=True)
     vis_dir = os.path.join(out_dir, 'visualizations')
     os.makedirs(vis_dir, exist_ok=True)
@@ -197,9 +198,14 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda', score_thres
             gt_boxes  = targets[b]['boxes'].cpu()    # (num_gt, 2) normalised [0,1]
 
             # Vessel-level — Assign highest severity lesion class to vessel
-            probs = pred_logits[b].softmax(dim=-1)              # (num_queries, 7)
-            pred_classes = pred_logits[b].argmax(dim=-1)        # class over all 7 classes
-            prob_scores = probs[:, :].max(dim=-1).values      
+            probs = pred_logits[b]
+            pred_classes = probs.argmax(dim=-1)
+            prob_scores = probs.max(dim=-1).values    
+
+            print(f"\n{name}")
+            print("pred_classes:", pred_classes.detach().cpu().numpy())
+            print("prob_scores :", prob_scores.detach().cpu().numpy())
+            print("class counts:", torch.bincount(pred_classes, minlength=7).detach().cpu().numpy())
 
             # Assigning the vessel class based on the highest severity lesion
             if gt_labels.numel() == 0:
@@ -238,7 +244,7 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda', score_thres
             )
 
             pred_slice_labels = boxes_to_slice_label_array(
-                boxes=pred_boxes[b],
+                boxes=boxes_cw_to_se(pred_boxes[b]),
                 labels=pred_classes,
                 z_len=z_len,
                 scores=prob_scores,
@@ -252,7 +258,7 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda', score_thres
                 name=name,
                 save_dir=vis_dir,
             )
-            sample_idx += 1
+            sample_idx += 1 
 
     # ── vessel-level confusion matrix ────────────────────────
     cm_v = confusion_matrix(vessel_gt_list, vessel_pred_list, labels=[0, 1, 2])  # 0: normal, 1: non-significant, 2: significant
@@ -290,9 +296,8 @@ def evaluate(checkpoint_path, out_dir='eval_results', device='cuda', score_thres
 
 if __name__ == '__main__':
     evaluate(
-        checkpoint_path='/home/joshua/CAD_diagnosis-master/model_60x40x8_eos_1/model_60x40x8_EOS_1_best.pth',
-        out_dir='eval_results_60x40x8_eos_1',
-        device='cuda:0',
+        checkpoint_path='/home/joshua/CAD_diagnosis-master/model_32x25x8_weight_2_lower_lr_epoch030.pth',
+        out_dir='epoch_30_weight_2',
+        device='cuda:1',
         score_thresh=0.05,
-        iou_thresh=0.1,
     )

@@ -100,6 +100,12 @@ class HungarianMatcher(nn.Module):
         C = C.view(bs, num_queries, -1).cpu()
 
         sizes = [len(v["boxes"]) for v in targets]
+
+        # print("out_bbox sample:", out_bbox[:5])
+        # print("tgt_bbox sample:", tgt_bbox[:5])
+        # print("cost_class range:", cost_class.min().item(), cost_class.max().item())
+        # print("cost_bbox range:", cost_bbox.min().item(), cost_bbox.max().item())
+        # print("cost_giou range:", cost_giou.min().item(), cost_giou.max().item())
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
     

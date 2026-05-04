@@ -382,12 +382,7 @@ class spatio_temporal_semantic_learning(nn.Module):
         xc, xb = self.object_detection_framework(img)
 
         if self.ret_map == True:
-            if self.pattern == 'training':
-                return self.od_pred2map(xc, xb), self.sc_pred2map(xs)
-            else :
-                return self.od_pred2map(xc, xb)
+            return self.od_pred2map(xc, xb), self.sc_pred2map(xs)
+
         else:
-            if self.pattern == 'training':
-                return xc, xb, xs
-            else:
-                return xc, xb
+            return xc, xb, xs

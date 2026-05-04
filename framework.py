@@ -77,7 +77,8 @@ class sc_net_framework:
             seq_length=self.opt.net_params["cubeseq_length"],
             eos_coef=self.opt.data_params["eos_coef"],
             length=self.opt.net_params["input_shape"][0],
-            step=self.opt.sc_params["_3d_cube_selection"][-1]
+            step=self.opt.sc_params["_3d_cube_selection"][-1],
+            sig_weight=self.opt.data_params["sig_weight"]
         )
 
     def get_dataloader(self):

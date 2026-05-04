@@ -71,23 +71,134 @@
 # tester2 = [{"labels": torch.tensor([0,0,0,0,0,0,0,2,0,0,0,0,0,0])}]
 # print(sc2od_targets(tester2, seq_length=14))
 from functions import center_of_cube
-
+import torch
 step = 8
 num_cubes = 32
 centers = [step // 2 + step * i - 1 for i in range(num_cubes)]
-print(centers)
-# consider a random cube
-center_23 = centers[23]
-center_24 = centers[24]
+# print(centers)
+# # PROOF THAT SC2OD IS FUCKED UP
+# # consider a random cube
+# cube_1 = 6
+# cube_2 = 24
+# center_1 = centers[cube_1]
+# center_2 = centers[cube_2]
 
-normalised_by_num_cube = [23 /32, 24/ 32]
-normalised_by_slices = center_23/256, center_24/256
-cube_to_slice = [int(x * 256) for x in normalised_by_num_cube]
-print(f"cube_to_slice: {cube_to_slice}")
-print(f"actual slices: {center_23}, {center_24}")
-print(f"normalised_by_num_cube: {normalised_by_num_cube}")
-print(f"normalised_by_slices: {normalised_by_slices}")
-my_center_23 = center_of_cube(23, step=8)
-my_center_24 = center_of_cube(24, step=8)
-print(f"my_center_23: {my_center_23}")
-print(f"my_center_24: {my_center_24}")
+# normalised_by_num_cube = [(cube_1) / 32, (cube_2+1) / 32]
+# normalised_by_slices = (center_1 - 3)/256, (center_2 + 5)/256
+# cube_to_slice = [int(x * 256) for x in normalised_by_num_cube]
+# print(f"cube_to_slice: {cube_to_slice}")
+# print(f"actual slices: {center_1}, {center_2}")
+# print(f"normalised_by_num_cube: {normalised_by_num_cube}")
+# print(f"normalised_by_slices: {normalised_by_slices}")
+
+def od2sc_targets(od_box_data, seq_length):
+
+    sc_point_data = []
+    for box_data in od_box_data:
+        device = box_data['boxes'].device
+        point_data = torch.zeros(seq_length, dtype=torch.long, device=device)
+        tmp = torch.round(box_data['boxes']*(seq_length + 1)).int()
+        #change seq length to slices, then match to closes cube center, then back to cube idx
+        tmp = torch.clamp(tmp, min=1, max=seq_length) - 1
+        #tmp is the start and end cube indes
+        # over here they do this clamp and -1 to make it 0 indexed i think
+        #why just shift back one cube for what
+        for k in range(tmp.shape[0]):
+            point_data[tmp[k, 0]:tmp[k, 1] + 1] = box_data['labels'][k] #remove the +1, labels come in as 0-5 for lesions, 6 for bg
+        sc_point_data += [{"labels": point_data}]
+    return sc_point_data
+
+import torch
+
+def od2sc_targets(od_box_data, seq_length):
+    sc_point_data = []
+
+    for box_data in od_box_data:
+        device = box_data['boxes'].device
+
+        point_data = torch.zeros(seq_length, dtype=torch.long, device=device)
+
+        boxes = box_data['boxes']
+        labels = box_data['labels']
+
+        # convert normalized box → physical space (same as true_cubes)
+        for k in range(boxes.shape[0]):
+
+            x0 = boxes[k, 0].item()
+            x1 = boxes[k, 1].item()
+
+            s0 = x0 * 256
+            s1 = x1 * 256
+
+            for i in range(seq_length):
+                lo, hi = cube_span(i)
+
+                # EXACT same rule as true_cubes
+                if max(lo, s0) < min(hi, s1):
+                    point_data[i] = labels[k]
+
+        sc_point_data.append({"labels": point_data})
+
+    return sc_point_data
+
+
+import torch
+import random
+
+seq_length = 32
+length = 256
+step = 8
+
+# ---- cube geometry ----
+def cube_span(i):
+    c = center_of_cube(i, step)
+    return c - 3, c + 5   # [lo, hi)
+
+# ---- OD mapping (FIXED) ----
+def od_map_single(x0, x1):
+    start = torch.floor(torch.tensor(x0) * seq_length).long().item()
+    end   = torch.ceil(torch.tensor(x1) * seq_length).long().item() - 1  # FIX
+
+    start = max(0, min(seq_length - 1, start))
+    end   = max(0, min(seq_length - 1, end))
+
+    return start, end
+
+# ---- ground truth ----
+def true_cubes(x0, x1):
+    s0, s1 = x0 * length, x1 * length
+
+    res = []
+    for i in range(seq_length):
+        lo, hi = cube_span(i)
+        if max(lo, s0) < min(hi, s1):
+            res.append(i)
+    return res
+
+# ---- test loop ----
+bad_boxes = []
+
+num_tests = 5000
+
+for _ in range(num_tests):
+
+    a, b = sorted([random.random(), random.random()])
+
+    if b - a < 0.01:
+        continue
+
+    start, end = od_map_single(a, b)
+    mapped = list(range(start, end + 1))  # explicit inclusive
+
+    truth = true_cubes(a, b)
+
+    if mapped != truth:
+        bad_boxes.append((a, b, mapped, truth))
+
+print(f"Total mismatches: {len(bad_boxes)}")
+
+for i, item in enumerate(bad_boxes[:10]):
+    print(f"\nMismatch {i}")
+    print("box:", item[0], item[1])
+    print("mapped:", item[2])
+    print("truth :", item[3])

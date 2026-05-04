@@ -5,7 +5,7 @@ import csv
 import os
 from framework import sc_net_framework
 from tqdm import tqdm
-from config import opt as opt1
+from config_2 import opt as opt1
 from functions import boxes_cw_to_se
 from optimization import od2sc_targets
 
@@ -395,4 +395,4 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             ])
 
 if __name__ == '__main__':
-    train(lr=3e-6, num_epochs=80, device='cuda:0', save_path='model_32x25x8_weight_5')
+    train(lr=3e-6, num_epochs=80, device='cuda:1', save_path='model_32x25x8_weight_2')

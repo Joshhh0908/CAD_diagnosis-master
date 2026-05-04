@@ -40,17 +40,43 @@ def lesions_from_slice_labels(slice_labels: np.ndarray):
             lesions.append((start, end, int(label)))
     return lesions
 
+def count_dataset_stats(label_dir):
+    counts = Counter()
+    total_lesions = 0
+    total_files = 0
+    
+    for fname in os.listdir(label_dir):
+        if not fname.endswith('.txt'):
+            continue
+        total_files += 1
+        fpath = os.path.join(label_dir, fname)
+        labels = np.loadtxt(fpath, dtype=int)
+        
+        for val in labels:
+            counts[val] += 1
+        
+        lesions = lesions_from_slice_labels(labels)
+        total_lesions += len(lesions)
+    
+    return counts, total_lesions, total_files
+
 if __name__ == "__main__":
     print("TRAIN:")
-    train_counts, total_train_lesions = count_classes(train)
+    train_counts, total_train_lesions, train_files = count_dataset_stats(train)
     total_train = sum(train_counts.values())
+    print(f"  Total vessels (files): {train_files}")
+    print(f"  Total slices:          {total_train}")
+    print(f"  Total lesion segments: {total_train_lesions}")
+    print(f"  Lesion vessels:        {sum(1 for f in os.listdir(train) if f.endswith('.txt') and any(np.loadtxt(os.path.join(train,f),dtype=int) > 0))}")
     for cls in sorted(train_counts):
-        print(f"  class {cls}: {train_counts[cls]} ({train_counts[cls]/total_train*100:.2f}%)")
-    print(f"Total number of lesions in TRAIN dataset: {total_train_lesions}")
+        print(f"  class {cls}: {train_counts[cls]:>8} slices ({train_counts[cls]/total_train*100:.2f}%)")
 
     print("\nTEST:")
-    test_counts, total_test_lesions = count_classes(test)
+    test_counts, total_test_lesions, test_files = count_dataset_stats(test)
     total_test = sum(test_counts.values())
+    print(f"  Total vessels (files): {test_files}")
+    print(f"  Total slices:          {total_test}")
+    print(f"  Total lesion segments: {total_test_lesions}")
+    print(f"  Lesion vessels:        {sum(1 for f in os.listdir(test) if f.endswith('.txt') and any(np.loadtxt(os.path.join(test,f),dtype=int) > 0))}")
     for cls in sorted(test_counts):
-        print(f"  class {cls}: {test_counts[cls]} ({test_counts[cls]/total_test*100:.2f}%)")
-    print(f"Total number of lesions in TEST dataset: {total_test_lesions}")
+        print(f"  class {cls}: {test_counts[cls]:>8} slices ({test_counts[cls]/total_test*100:.2f}%)")
