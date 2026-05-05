@@ -75,6 +75,32 @@ class cubic_sequence_data(data.Dataset):
         labels = torch.tensor(labels, dtype=torch.int64)
         boxes  = torch.tensor(boxes,  dtype=torch.float32)
         return {"labels": labels, "boxes": boxes}
+    
+    def sc_targets(self, labels_data, seq_length=32):
+        segment_labels = torch.zeros(seq_length, dtype=torch.long)
+        JOINT_TO_STEN   = {0: 0, 1: 1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2}
+        JOINT_TO_PLAQUE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 1, 5: 2, 6: 3}
+
+        for i in range(0, labels_data.shape[0], 8):
+            segment = labels_data[i:i+8]
+            segment = set(segment.unique().tolist()) - {0}
+            if not segment:
+                segment_label = 0  # all background
+            else:    
+                segment_plaque = [JOINT_TO_PLAQUE[s] for s in segment]
+                segment_sten   = [JOINT_TO_STEN[s]   for s in segment]
+                segment_s = max(segment_sten)
+                if 2 in segment_plaque or (3 in segment_plaque and 1 in segment_plaque):
+                    segment_p = 2
+                else:
+                    segment_p = segment_plaque[0]
+
+                segment_label = (segment_s - 1) * 3 + segment_p
+
+            segment_idx = i // 8
+            segment_labels[segment_idx] = segment_label
+            # print(f"Segment {segment_idx}: {labels_data[i:i+8]} -> Label: {segment_label}")
+        return {"labels": segment_labels}
 
     def __getitem__(self, index):
         vf   = self.volumes_file_list[index]
@@ -94,7 +120,8 @@ class cubic_sequence_data(data.Dataset):
 
         return {
             'image':  torch.tensor(vol, dtype=torch.float32),
-            'target': self.detection_targets(labels),# 0 indexed targets
+            'od_target': self.detection_targets(labels),
+            'sc_target': self.sc_targets(labels),
             'name': name
         }
 
@@ -104,13 +131,14 @@ class cubic_sequence_data(data.Dataset):
 
 def collate_fn(batch):
 
-    images, targets, names = [], [], []
+    images, od_targets, sc_targets, names = [], [], [], []
     for item in batch:
         images.append(item['image'])
-        targets.append(item['target'])
+        od_targets.append(item['od_target'])
+        sc_targets.append(item['sc_target'])
         names.append(item['name'])
     images = torch.stack(images, dim=0)
 
-    return images, targets, names
+    return images, od_targets, sc_targets, names
 
 

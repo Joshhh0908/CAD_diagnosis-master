@@ -11,3 +11,6 @@ pip install pandas
 pip install tqdm
 pip install matplotlib
 pip install scikit-learn
+
+
+python eval.py --ckpt /home/joshua/CAD_diagnosis-master/models/weight2/model_32x25x8_weight_2_lower_lr_epoch030.pth --device cuda:1

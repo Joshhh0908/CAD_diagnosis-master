@@ -67,10 +67,6 @@ class object_detection_loss(nn.Module):
 
         indices = self.matcher(outputs, targets)
 
-        ### for debug ####
-        match_counts = [len(src) for src, _ in indices]
-        gt_counts = [len(t["labels"]) for t in targets]
-
         # print("gt counts per sample:", gt_counts)
         # print("matched counts per sample:", match_counts)
 
@@ -159,38 +155,6 @@ def sc2od_targets(sc_point_data, seq_length):
         od_box_data.append({"labels": labels, "boxes": boxes})
     return od_box_data
 
-# def sc2od_targets_new(sc_point_data, step, length): #take in list of predictions for each sample pt
-#     od_box_data = []
-#     for point_data in sc_point_data:
-#         tmp_data = point_data['labels']
-
-#         boxes, labels = [], []
-#         start, last = None, 0
-
-#         for i in range(tmp_data.shape[0]):
-#             if start is not None:
-#                 if tmp_data[i] != last:
-#                     start_slice = center_of_cube(start, step)
-#                     end_slice = center_of_cube(i, step)
-#                     boxes.append([(start_slice) / length, min((end_slice + 1) / length, 1.0)]) #remove +1 to start and end. no need to change to 1 indexed
-#                     #note: end slice exclusive, ie lesion stops 1 slice before the end indicated
-#                     labels.append(last) #remove the -1, 1-6 leisons, 0 bg
-
-#                     if tmp_data[i] != 0: 
-#                         start, last = i, tmp_data[i]
-#                     else:
-#                         start, last = None, 0
-#             elif tmp_data[i] != 0: 
-#                     start, last = i, tmp_data[i]
-
-#         if start is not None:
-#             start_slice = center_of_cube(start, step)
-#             boxes.append([(start_slice) / length, 1.0])
-#             labels.append(last) #remove the -1, labels come in as 1-6 lesions, 0 bg
-#         boxes = torch.tensor(boxes, device=tmp_data.device)
-#         labels = torch.tensor(labels, device=tmp_data.device)  
-#         od_box_data.append({"labels": labels, "boxes": boxes})
-#     return od_box_data
 
 
 class dual_task_contrastive_loss(nn.Module):
@@ -228,8 +192,7 @@ class dual_task_contrastive_loss(nn.Module):
             # labels = torch.clamp(labels, min=0)
 
             ret_od_targets.append({"labels": labels, "boxes": selected_boxes})
-        #for box debugging (check the start>end thing)
-        all_boxes = [x["boxes"] for x in ret_od_targets]
+
         return od2sc_targets(ret_od_targets, self.seq_length)
 
     def forward(self, od_outputs, sc_outputs, od_targets):
@@ -256,11 +219,11 @@ class spatio_temporal_contrast_loss(nn.Module):
         self.sc_loss = sampling_point_classification_loss(num_classes=self.num_classes, seq_length=self.seq_length)
         self.dc_loss = dual_task_contrastive_loss(self.od_loss, self.sc_loss, seq_length=self.seq_length, vessel_length=length,step=step)
 
-    def forward(self, od_outputs, sc_outputs, od_targets, delta=1):
+    def forward(self, od_outputs, sc_outputs, od_targets, sc_targets, delta=0.3):
 
         dc = self.dc_loss(od_outputs, sc_outputs, od_targets) * delta
         od, loss_labels, loss_boxes = self.od_loss(od_outputs, od_targets)
-        sc = self.sc_loss(sc_outputs, od2sc_targets(od_targets, self.seq_length))
+        sc = self.sc_loss(sc_outputs, sc_targets)
 
         # print("dc shape:", dc.shape, "value:", dc)
         # print("od shape:", od.shape, "value:", od)

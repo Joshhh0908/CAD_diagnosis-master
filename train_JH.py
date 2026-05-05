@@ -55,7 +55,32 @@ def resize_seq_label_torch(label_1d, target_len):
             out[ni] = vals[torch.argmax(cnts)]
     return out
 
+def sc_targets(labels_data, seq_length=32):
+    segment_labels = torch.zeros(seq_length, dtype=torch.long)
+    JOINT_TO_STEN   = {0: 0, 1: 1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2}
+    JOINT_TO_PLAQUE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 1, 5: 2, 6: 3}
 
+    for i in range(0, labels_data.shape[0], 8):
+        segment = labels_data[i:i+8]
+        segment = set(segment.unique().tolist()) - {0}
+        if not segment:
+            segment_label = 0  # all background
+        else:    
+            segment_plaque = [JOINT_TO_PLAQUE[s] for s in segment]
+            segment_sten   = [JOINT_TO_STEN[s]   for s in segment]
+            segment_s = max(segment_sten)
+            if 2 in segment_plaque or (3 in segment_plaque and 1 in segment_plaque):
+                segment_p = 2
+            else:
+                segment_p = segment_plaque[0]
+
+            segment_label = (segment_s - 1) * 3 + segment_p
+
+        segment_idx = i // 8
+        segment_labels[segment_idx] = segment_label
+        # print(f"Segment {segment_idx}: {labels_data[i:i+8]} -> Label: {segment_label}")
+    return {segment_labels}
+    
 def move_targets_to_device(targets, device):
     return [{"boxes":  t["boxes"].to(device),
              "labels": t["labels"].to(device)} for t in targets]
