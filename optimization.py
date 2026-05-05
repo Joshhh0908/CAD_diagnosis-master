@@ -219,7 +219,7 @@ class spatio_temporal_contrast_loss(nn.Module):
         self.sc_loss = sampling_point_classification_loss(num_classes=self.num_classes, seq_length=self.seq_length)
         self.dc_loss = dual_task_contrastive_loss(self.od_loss, self.sc_loss, seq_length=self.seq_length, vessel_length=length,step=step)
 
-    def forward(self, od_outputs, sc_outputs, od_targets, sc_targets, delta=0.3):
+    def forward(self, od_outputs, sc_outputs, od_targets, sc_targets, delta=0.25):
 
         dc = self.dc_loss(od_outputs, sc_outputs, od_targets) * delta
         od, loss_labels, loss_boxes = self.od_loss(od_outputs, od_targets)

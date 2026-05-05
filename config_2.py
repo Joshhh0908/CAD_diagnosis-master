@@ -8,7 +8,7 @@ class DefaultConfig(object):
         "train_ratio": 0.8,
         "window_lw": [300, 900],
         "batch_size": 2,
-        "sig_weight": 2
+        "sig_weight": 10
     }
     net_params = {
         "input_shape": [256, 64, 64],

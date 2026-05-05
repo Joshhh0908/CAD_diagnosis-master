@@ -1,0 +1,22 @@
+2026-05-05 17:00:35,835 Starting training — save_path=model_weight_10_reduced_delta_fixed_sc_gt lr=3e-06 device=cuda:1
+2026-05-05 17:00:36,868 Crash at epoch 1
+Traceback (most recent call last):
+  File "/home/joshua/CAD_diagnosis-master/train_32x25x8_weight_10.py", line 305, in train
+    for images, od_targets, sc_targets, _ in train_bar:
+  File "/home/joshua/miniconda3/envs/STCN/lib/python3.9/site-packages/tqdm/std.py", line 1181, in __iter__
+    for obj in iterable:
+  File "/home/joshua/miniconda3/envs/STCN/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 701, in __next__
+    data = self._next_data()
+  File "/home/joshua/miniconda3/envs/STCN/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 757, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/home/joshua/miniconda3/envs/STCN/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/joshua/miniconda3/envs/STCN/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/joshua/CAD_diagnosis-master/augmentation.py", line 124, in __getitem__
+    'sc_target': self.sc_targets(labels),
+  File "/home/joshua/CAD_diagnosis-master/augmentation.py", line 86, in sc_targets
+    segment = set(segment.unique().tolist()) - {0}
+AttributeError: 'numpy.ndarray' object has no attribute 'unique'
+2026-05-05 17:05:41,617 Starting training — save_path=model_weight_10_reduced_delta_fixed_sc_gt lr=3e-06 device=cuda:1
+2026-05-05 17:05:43,743   [DIAG e001] bg=0.124 max_lesion=0.242

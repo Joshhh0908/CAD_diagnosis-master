@@ -182,16 +182,17 @@ def eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs):
                 leave=False)
     
     with torch.no_grad():
-        for images, targets, _ in val_bar:
+        for images, od_targets, sc_targets, _ in val_bar:
             images = images.to(device)
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            od_targets = [{k: v.to(device) for k, v in t.items()} for t in od_targets]
+            sc_targets = [{k: v.to(device) for k, v in t.items()} for t in sc_targets]
             od_outputs, sc_outputs = model(images)
             od_outputs_for_loss = dict(od_outputs)
             od_outputs_for_loss["pred_boxes"] = boxes_cw_to_se(od_outputs["pred_boxes"])
 
             # box checking debug
             # boxes = od_outputs["pred_boxes"].reshape(-1, 2)
-            loss, sc_loss, od_loss, dc_loss, loss_labels, loss_boxes = loss_fn(od_outputs_for_loss, sc_outputs, targets)
+            loss, sc_loss, od_loss, dc_loss, loss_labels, loss_boxes = loss_fn(od_outputs_for_loss, sc_outputs, od_targets, sc_targets)
 
             val_loss += loss.item()
             val_sc_loss += sc_loss.item()
@@ -205,11 +206,11 @@ def eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs):
             val_sc_cube_total += batch_size * L
             val_sc_vessel_total += batch_size
 
-            correct, total = od_inference(od_outputs, targets, batch_size)
+            correct, total = od_inference(od_outputs, od_targets, batch_size)
             val_od_correct += correct
             val_od_total += total
 
-            sc_metrics = sc_inference(sc_outputs, targets)
+            sc_metrics = sc_inference(sc_outputs, sc_targets)
 
             val_sc_cube_joint += sc_metrics["cube_joint_correct"]
             val_sc_cube_sten  += sc_metrics["cube_sten_correct"]
@@ -301,19 +302,20 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                             desc=f"Epoch {epoch+1}/{num_epochs} [Train]",
                             leave=False)
 
-            for images, targets, _ in train_bar:
+            for images, od_targets, sc_targets, _ in train_bar:
                 images = images.to(device)
 
-                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                
+                od_targets = [{k: v.to(device) for k, v in t.items()} for t in od_targets]
+                sc_targets = [{k: v.to(device) for k, v in t.items()} for t in sc_targets]
+
                 od_outputs, sc_outputs = model(images)
                 
                 # first batch of each epoch (debug prints)
                 if first_batch:
                     with torch.no_grad():
                         probs = torch.softmax(od_outputs['pred_logits'], dim=-1)
-                        bg = probs[:,:,-1].mean().item()
-                        ml = probs[:,:,:-1].max().item()
+                        bg = probs[:,:,0].mean().item()
+                        ml = probs[:,:,1:].max().item()
                     log.info(f"  [DIAG e{epoch+1:03d}] bg={bg:.3f} max_lesion={ml:.3f}")
                     first_batch = False
 
@@ -321,7 +323,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
                 od_outputs_for_loss = dict(od_outputs)
                 od_outputs_for_loss["pred_boxes"] = boxes_cw_to_se(od_outputs["pred_boxes"])
 
-                loss, sc_loss, od_loss, dc_loss, loss_labels, loss_boxes = loss_fn(od_outputs_for_loss, sc_outputs, targets)
+                loss, sc_loss, od_loss, dc_loss, loss_labels, loss_boxes = loss_fn(od_outputs_for_loss, sc_outputs, od_targets, sc_targets)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -426,10 +428,11 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             # dump one batch for debugging
             torch.save({
                 "images": images,
-                "targets": targets,
+                "od_targets": od_targets,
+                "sc_targets": sc_targets
             }, "crash_dump.pt")
 
             raise e
         
 if __name__ == '__main__':
-    train(lr=3e-6, num_epochs=80, device='cuda:1', save_path='model_32x25x8_weight_2')
+    train(lr=3e-6, num_epochs=80, device='cuda:1', save_path='model_weight_10_reduced_delta_fixed_sc_gt')

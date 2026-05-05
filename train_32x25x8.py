@@ -428,10 +428,11 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             # dump one batch for debugging
             torch.save({
                 "images": images,
-                "targets": targets,
+                "od_targets": od_targets,
+                "sc_targets": sc_targets
             }, "crash_dump.pt")
 
             raise e
         
 if __name__ == '__main__':
-    train(lr=3e-6, num_epochs=80, device='cuda:0', save_path='model_32x25x8_weight_5')
+    train(lr=3e-6, num_epochs=80, device='cuda:0', save_path='model_weight_5_reduced_delta_fixed_sc_gt')

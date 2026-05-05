@@ -83,7 +83,7 @@ class cubic_sequence_data(data.Dataset):
 
         for i in range(0, labels_data.shape[0], 8):
             segment = labels_data[i:i+8]
-            segment = set(segment.unique().tolist()) - {0}
+            segment = set(np.unique(segment).tolist()) - {0}
             if not segment:
                 segment_label = 0  # all background
             else:    
