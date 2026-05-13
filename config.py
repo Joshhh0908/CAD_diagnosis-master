@@ -24,7 +24,8 @@ class DefaultConfig(object):
         "temporal_feature_channels": [128, 32],
         "temporal_embedding_dim": [864, 512],
         "temporal_transfromer_param": [8, 4],
-        "temporal_class_dim": [512, 128]
+        "temporal_class_dim": [512, 128],
+        "sc_weights": [0.3, 3.0, 1.0, 1.0, 5.0, 5.0, 5.0] #this one is for sc, class 0-3 are background/stenosis level 1-3, class 4-6 are plaque type
     }
     od_params = {
         "spatial_conv_levels" : 4,

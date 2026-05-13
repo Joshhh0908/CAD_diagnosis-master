@@ -8,7 +8,7 @@ from packaging import version
 from collections import defaultdict, deque
 from scipy.optimize import linear_sum_assignment
 from typing import Optional, List
-
+import csv
 import torch
 from torch import nn
 from torch import Tensor
@@ -583,3 +583,58 @@ def boxes_cw_to_se(boxes):
     start = boxes[..., 0] - boxes[..., 1] / 2.0
     end   = boxes[..., 0] + boxes[..., 1] / 2.0
     return torch.stack((start, end), dim=-1)
+
+def log_and_write(model, optimizer, log, best_val_od_acc, save_path, epoch, num_epochs, train_metrics, val_metrics, cms):
+    
+    epoch_path = f"{save_path}_epoch{epoch+1:03d}.pth"
+
+    torch.save({
+        'epoch': epoch + 1,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'train_loss': train_metrics["loss"],
+        'val_loss': val_metrics["loss"],
+    }, epoch_path)
+
+    cm_path = f"{save_path}_epoch{epoch+1:03d}_cms.pth"
+    torch.save(cms, cm_path)
+
+    epoch_str = f"Epoch {epoch+1:03d}/{num_epochs} | "
+
+    for key in train_metrics:
+        epoch_str += f"  train_{key}: {train_metrics[key]:.4f} | "
+    for key in val_metrics:
+        val = val_metrics[key]
+        if isinstance(val, list):
+            val_str = str(val)  # or json.dumps(val)
+            epoch_str += f"  val_{key}: {val_str} | "
+        else:
+            epoch_str += f"  val_{key}: {val:.4f} | "
+            
+    val_od_acc = val_metrics["od_acc"]
+    if val_od_acc > best_val_od_acc:
+        epoch_str += "*"
+        torch.save(model.state_dict(), f"{save_path}_best.pth")
+        log.info(f"  new best val_od_acc={val_od_acc:.4f}, saved {save_path}_best.pth")
+
+    log.info(epoch_str)
+
+    csv_path = f"{save_path}_metrics.csv"
+    if not os.path.exists(csv_path):
+        with open(csv_path, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            header = ["epoch"]
+            for key in train_metrics.keys():
+                header.append(f"train_{key}")
+            for key in val_metrics.keys():
+                header.append(f"val_{key}")
+            writer.writerow(header)
+
+    with open(csv_path, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        values = [epoch + 1]
+        for key in train_metrics.keys():
+            values.append(train_metrics[key])
+        for key in val_metrics.keys():
+            values.append(val_metrics[key])
+        writer.writerow(values)

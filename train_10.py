@@ -1,11 +1,9 @@
 import torch
 import logging
-import csv
-import os
 from framework import sc_net_framework
 from tqdm import tqdm
 from config_2 import opt
-from functions import boxes_cw_to_se
+from functions import boxes_cw_to_se, log_and_write
 from eval import eval_epoch
 import traceback
 
@@ -102,77 +100,22 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             train_label_loss /= len(train_loader)
             train_box_loss /= len(train_loader)
 
+            train_metrics = {
+                "loss": train_loss,
+                "od_loss": train_od_loss,
+                "sc_loss": train_sc_loss,
+                "dc_loss": train_dc_loss,
+                "label_loss": train_label_loss,
+                "box_loss": train_box_loss
+            }
+
             # --- EVALUATION ---
-            (val_loss, val_od_loss, val_dc_loss, val_sc_loss, val_label_loss, val_box_loss,
-             val_sc_cube_joint, val_sc_cube_sten, val_sc_cube_plaq, val_sc_vessel_sten, val_od_acc, val_sten_per_class_acc, val_plaq_per_class_acc) = eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs)
+            val_metrics, cms = eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs)
             
             # ----------------SAVING STUFF----------------
-            epoch_path = f"{save_path}_epoch{epoch+1:03d}.pth"
-            torch.save({
-                'epoch': epoch + 1,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'train_loss': train_loss,
-                'val_loss': val_loss,
-            }, epoch_path)
-
-            log.info(f"Epoch {epoch+1:03d}/{num_epochs} | "
-                    f"train_loss: {train_loss:.4f} | "
-                    f"train_od_loss: {train_od_loss:.4f} | "
-                    f"train_dc_loss: {train_dc_loss:.4f} | "
-                    f"train_sc_loss: {train_sc_loss:.4f} | "
-                    f"train_label_loss: {train_label_loss:.4f} | "
-                    f"train_box_loss: {train_box_loss:.4f} | "
-
-                    f"val: {val_loss:.4f} | "
-                    f"val_od_loss: {val_od_loss:.4f} | "
-                    f"val_dc_loss: {val_dc_loss:.4f} | "
-                    f"val_sc_loss: {val_sc_loss:.4f} | "
-                    f"val_label_loss: {val_label_loss:.4f} | "
-                    f"val_box_loss: {val_box_loss:.4f} | "
-                    f"val_sc_cube_joint_acc: {val_sc_cube_joint:.4f} |"
-                    f"val_sc_cube_sten_acc: {val_sc_cube_sten:.4f} |" 
-                    f"val_sc_cube_plaq_acc: {val_sc_cube_plaq:.4f} |"
-                    f"val_sc_vessel_sten_acc: {val_sc_vessel_sten:.4f} |"
-                    f"val_sten_per_class_acc: {val_sten_per_class_acc} |"
-                    f"val_plaq_per_class_acc: {val_plaq_per_class_acc} |"
-                    f"val_od_acc: {val_od_acc:.4f} | "
-                    
-                    f"{' *' if val_od_acc > best_val_od_acc else ''}")
-
-            if val_od_acc > best_val_od_acc:
-                best_val_od_acc = val_od_acc
-                torch.save(model.state_dict(), f"{save_path}_best.pth")
-                log.info(f"  new best val_od_acc={val_od_acc:.4f}, saved {save_path}_best.pth")
-
-            csv_path = f"{save_path}_metrics.csv"
-
-            if not os.path.exists(csv_path):
-                with open(csv_path, mode='w', newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerow([
-                        "epoch",
-                        "train_loss", "train_od_loss", "train_dc_loss", "train_sc_loss",
-                        "train_label_loss", "train_box_loss",
-                        "val_loss", "val_od_loss", "val_dc_loss", "val_sc_loss",
-                        "val_label_loss", "val_box_loss",
-                        "val_sc_cube_joint_acc", "val_sc_cube_sten_acc", "val_sc_cube_plaq_acc",
-                        "val_sc_vessel_sten_acc",
-                         "val_sten_per_class_acc", "val_plaq_per_class_acc", "val_od_acc"
-                    ])
-            
-            with open(csv_path, mode='a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    epoch + 1,
-                    train_loss, train_od_loss, train_dc_loss, train_sc_loss,
-                    train_label_loss, train_box_loss,
-                    val_loss, val_od_loss, val_dc_loss, val_sc_loss,
-                    val_label_loss, val_box_loss,
-                    val_sc_cube_joint, val_sc_cube_sten, val_sc_cube_plaq,
-                    val_sc_vessel_sten,
-                     val_sten_per_class_acc, val_plaq_per_class_acc, val_od_acc
-                ])
+            log_and_write(model, optimizer, log, best_val_od_acc, save_path, epoch, num_epochs, train_metrics, val_metrics, cms)
+            val_od_acc = val_metrics["od_acc"]
+            best_val_od_acc = max(best_val_od_acc, val_od_acc)
 
         except Exception as e:
             log.exception(f"Crash at epoch {epoch+1}")
@@ -185,4 +128,4 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             raise e
         
 if __name__ == '__main__':
-    train(lr=3e-6, num_epochs=80, device='cuda:1', save_path='model_weight_10_reduced_delta_fixed_sc_gt')
+    train(lr=3e-6, num_epochs=80, device='cuda:1', save_path='model_weight_10_new_eval_format')

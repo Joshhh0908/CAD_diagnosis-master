@@ -88,22 +88,23 @@ class object_detection_loss(nn.Module):
 
 #SC LOSS
 class sampling_point_classification_loss(nn.Module):
-    def __init__(self, num_classes=3, seq_length=32):
+    def __init__(self, num_classes=3, seq_length=32, sc_weights=None):
         super().__init__()
 
         self.num_classes = num_classes
         self.seq_length = seq_length
+        self.sc_weights = sc_weights
     #CE without weight for background?
-    def loss_labels(self, outputs, targets):
-        return F.cross_entropy(outputs, targets)
+    def loss_labels(self, outputs, targets, sc_weights):
+        return F.cross_entropy(outputs, targets, weight=sc_weights)
 
     def forward(self, outputs, targets):
 
         logits = rearrange(outputs["pred_logits"], 'b l c -> (b l) c').to(torch.float32)
         labels = torch.cat([t["labels"] for t in targets], dim=0).to(torch.long)
         labels = labels.to(logits.device)
-
-        return self.loss_labels(logits, labels)
+        sc_weights = torch.tensor(self.sc_weights, dtype=torch.float, device=logits.device)
+        return self.loss_labels(logits, labels, sc_weights)
 
 
 def od2sc_targets(od_box_data, seq_length):
@@ -207,16 +208,17 @@ class dual_task_contrastive_loss(nn.Module):
 
 
 class spatio_temporal_contrast_loss(nn.Module):
-    def __init__(self, num_classes=2, seq_length=32, eos_coef=0.2, step=8, length=256, sig_weight=5):
+    def __init__(self, num_classes=2, seq_length=32, eos_coef=0.2, step=8, length=256, sig_weight=5, sc_weights=None):
         super().__init__()
 
         self.num_classes = num_classes
         self.seq_length = seq_length
         self.eos_coef = eos_coef
+        self.sc_weights = sc_weights
 
         self.od_loss = object_detection_loss(num_classes=self.num_classes, eos_coef=self.eos_coef,
                                              matcher=funcs.HungarianMatcher(), sig_weight=sig_weight)
-        self.sc_loss = sampling_point_classification_loss(num_classes=self.num_classes, seq_length=self.seq_length)
+        self.sc_loss = sampling_point_classification_loss(num_classes=self.num_classes, seq_length=self.seq_length, sc_weights=self.sc_weights)
         self.dc_loss = dual_task_contrastive_loss(self.od_loss, self.sc_loss, seq_length=self.seq_length, vessel_length=length,step=step)
 
     def forward(self, od_outputs, sc_outputs, od_targets, sc_targets, delta=0.25):
@@ -231,6 +233,6 @@ class spatio_temporal_contrast_loss(nn.Module):
 
         ret_loss = dc
         ret_loss = ret_loss + od
-        ret_loss = ret_loss + sc
+        ret_loss = ret_loss + 2*sc
         
         return ret_loss, sc, od, dc, loss_labels, loss_boxes

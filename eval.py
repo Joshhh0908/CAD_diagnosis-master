@@ -6,6 +6,10 @@ from functions import boxes_cw_to_se
 JOINT_TO_STEN   = {0: 0, 1: 1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2}
 JOINT_TO_PLAQUE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 1, 5: 2, 6: 3}
 
+
+STEN_MAPPING = torch.tensor([0,1,1,1,2,2,2])
+PLAQ_MAPPING = torch.tensor([0,1,2,3,1,2,3])
+
 BG_IDX = 0
 
 def get_vessel_pred(pred_logits_b, score_thresh):
@@ -32,16 +36,13 @@ def get_vessel_pred(pred_logits_b, score_thresh):
 
     return vessel_pred
 
-def od_inference(od_outputs, targets, eval_length,score_thresh=0.05):
+def od_inference(od_outputs, targets, eval_length, cms, score_thresh=0.05):
 
-    correct = 0
-    total = 0
-    per_cls_correct = [0, 0, 0]
-    per_cls_total   = [0, 0, 0]
+
     pred_logits = od_outputs['pred_logits']
 
     for b in range(eval_length):
-        gt_labels = targets[b]['labels'].cpu()
+        gt_labels = targets[b]['labels']
         # GT vessel class
         if gt_labels.numel() == 0:
             vessel_gt = 0  # no lesions, so vessel is normal
@@ -50,22 +51,16 @@ def od_inference(od_outputs, targets, eval_length,score_thresh=0.05):
             
         vessel_pred = get_vessel_pred(pred_logits[b].cpu(), score_thresh)
 
-        per_cls_total[vessel_gt] += 1
-        if vessel_gt == vessel_pred:
-            correct += 1
-            per_cls_correct[vessel_gt] += 1
-        total += 1
-    
-    return correct, total
+        cms["od_cm"][vessel_gt, vessel_pred] += 1
 
-def sc_inference(sc_outputs, sc_targets):
+def sc_inference(sc_outputs, sc_targets, cms):
 
     sc_logits = sc_outputs["pred_logits"]  # [B, L, 7]
     device = sc_logits.device
 
     # mappings
-    sten_mapping = torch.tensor([JOINT_TO_STEN[i] for i in range(7)], device=device, dtype=torch.long)
-    plaq_mapping = torch.tensor([JOINT_TO_PLAQUE[i] for i in range(7)], device=device, dtype=torch.long)
+    sten_mapping = STEN_MAPPING.to(device)
+    plaq_mapping = PLAQ_MAPPING.to(device)
 
     # targets
     # print("sc_targets:", sc_targets)
@@ -81,94 +76,76 @@ def sc_inference(sc_outputs, sc_targets):
     pred_plaq = plaq_mapping[pred_seq]
     gt_plaq   = plaq_mapping[gt_seq]
 
-    # ---------------- cube-level ----------------
-
-    cube_joint_correct = (pred_seq == gt_seq).sum().item()
-    cube_joint_total   = gt_seq.numel()
-
-    cube_sten_correct = (pred_sten == gt_sten).sum().item()
-    cube_sten_total   = gt_sten.numel()
-
-    cube_plaq_correct = (pred_plaq == gt_plaq).sum().item()
-    cube_plaq_total   = gt_plaq.numel()
-
-    # ---------------- vessel-level ----------------
-
+    # vessel level
     gt_vessel   = sten_mapping[gt_seq.max(dim=1).values]     # [B]
     pred_vessel = sten_mapping[pred_seq.max(dim=1).values]   # [B]
 
-    vessel_sten_correct = (gt_vessel == pred_vessel).sum().item()
-    vessel_total        = gt_vessel.size(0)
+    #upate confusion matrices
+    idx = gt_seq.view(-1) * 7 + pred_seq.view(-1)
+    cms["sc_cube_joint_cm"] += torch.bincount(idx.cpu(), minlength=49).reshape(7,7)
 
-    # ---------------- per-class (vectorised) ----------------
+    idx = gt_sten.view(-1) * 3 + pred_sten.view(-1)
+    cms["sc_cube_sten_cm"] += torch.bincount(idx.cpu(), minlength=9).reshape(3,3)
+    
+    idx = gt_plaq.view(-1) * 4 + pred_plaq.view(-1)
+    cms["sc_cube_plaq_cm"] += torch.bincount(idx.cpu(), minlength=16).reshape(4,4)
+    
+    idx = gt_vessel * 3 + pred_vessel
+    cms["sc_vessel_sten_cm"] += torch.bincount(idx.cpu(), minlength=9).reshape(3,3)
 
-    per_cube_sten_correct = []
-    per_cube_sten_total   = []
+def accuracies(metrics, cms):
 
-    for cls in range(3):
-        mask = (gt_sten == cls)
-        per_cube_sten_total.append(mask.sum().item())
-        per_cube_sten_correct.append(((pred_sten == gt_sten) & mask).sum().item())
+    metrics["od_acc"] = (cms["od_cm"].trace() / cms["od_cm"].sum()).item()
+    metrics["sc_cube_joint_acc"] = (cms["sc_cube_joint_cm"].trace() / cms["sc_cube_joint_cm"].sum()).item()
+    metrics["sc_cube_sten_acc"] = (cms["sc_cube_sten_cm"].trace() / cms["sc_cube_sten_cm"].sum()).item()
+    metrics["sc_cube_plaq_acc"] = (cms["sc_cube_plaq_cm"].trace() / cms["sc_cube_plaq_cm"].sum()).item()
+    metrics["sc_vessel_sten_acc"] = (cms["sc_vessel_sten_cm"].trace() / cms["sc_vessel_sten_cm"].sum()).item()
 
-    per_cube_plaq_correct = []
-    per_cube_plaq_total   = []
+    # OD per-class accuracy
+    cm = cms["od_cm"]
+    metrics["od_sten_per_class_acc"] = (cm.diag() / cm.sum(dim=1).clamp(min=1)).tolist()
 
-    for cls in range(4):
-        mask = (gt_plaq == cls)
-        per_cube_plaq_total.append(mask.sum().item())
-        per_cube_plaq_correct.append(((pred_plaq == gt_plaq) & mask).sum().item())
+    # SC stenosis per-class accuracy
+    cm = cms["sc_cube_sten_cm"]
+    metrics["sc_sten_acc"] = (cm.diag() / cm.sum(dim=1).clamp(min=1)).tolist()
 
-    # ---------------- return ----------------
-
-    return {
-        "cube_joint_correct": cube_joint_correct,
-        "cube_joint_total": cube_joint_total,
-
-        "cube_sten_correct": cube_sten_correct,
-        "cube_sten_total": cube_sten_total,
-
-        "cube_plaq_correct": cube_plaq_correct,
-        "cube_plaq_total": cube_plaq_total,
-
-        "cube_sten_per_class": per_cube_sten_correct,
-        "cube_sten_per_class_total": per_cube_sten_total,
-
-        "cube_plaq_per_class": per_cube_plaq_correct,
-        "cube_plaq_per_class_total": per_cube_plaq_total,
-
-        "vessel_sten_correct": vessel_sten_correct,
-        "vessel_total": vessel_total,
-    }
+    # SC plaque per-class accuracy
+    cm = cms["sc_cube_plaq_cm"]
+    metrics["sc_plaq_acc"] = (cm.diag() / cm.sum(dim=1).clamp(min=1)).tolist()
 
 def eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs):
-    # ----------------EVALUATION----------------
+
     model.eval()
     model.pattern = 'testing'
     model.sampling_point_framework.pattern = 'testing'
     model.object_detection_framework.pattern = 'testing'
-    val_sten_correct = [0, 0, 0]
-    val_sten_total   = [0, 0, 0]
+    
+    cms = {        
+        # confusion matrices
+        "od_cm": torch.zeros(3,3,dtype=torch.long),
+        "sc_cube_sten_cm": torch.zeros(3,3,dtype=torch.long),
+        "sc_cube_plaq_cm": torch.zeros(4,4,dtype=torch.long),
+        "sc_cube_joint_cm": torch.zeros(7,7,dtype=torch.long),
+        "sc_vessel_sten_cm": torch.zeros(3,3,dtype=torch.long),
+        }
+    
+    metrics = {
+        #loss
+        "loss": 0.0, "od_loss": 0.0, "sc_loss": 0.0,
+        "dc_loss": 0.0, "label_loss": 0.0, "box_loss": 0.0,
+        
+        # final accuracies
+        "od_acc": 0.0,
+        "sc_cube_joint_acc": 0.0,
+        "sc_cube_sten_acc": 0.0,
+        "sc_cube_plaq_acc": 0.0,
+        "sc_vessel_sten_acc": 0.0,
 
-    val_plaq_correct = [0, 0, 0, 0]
-    val_plaq_total   = [0, 0, 0, 0]
-
-    val_loss = 0.0
-    val_sc_loss = 0.0
-    val_od_loss = 0.0
-    val_dc_loss = 0.0
-    val_box_loss = 0.0
-    val_label_loss = 0.0
-
-    val_od_correct = 0
-    val_od_total = 0
-
-    val_sc_cube_joint = 0
-    val_sc_cube_sten  = 0
-    val_sc_cube_plaq  = 0
-    val_sc_vessel_sten  = 0
-
-    val_sc_cube_total = 0
-    val_sc_vessel_total = 0
+        # per-class acc
+        "od_sten_per_class_acc": [0.0]*3,
+        "sc_sten_acc": [0.0]*3,
+        "sc_plaq_acc": [0.0]*4,
+    }
 
     val_bar = tqdm(eval_loader,
                 desc=f"Epoch {epoch+1}/{num_epochs} [Val]  ",
@@ -176,72 +153,33 @@ def eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs):
     
     with torch.no_grad():
         for images, od_targets, sc_targets, _ in val_bar:
+
             images = images.to(device)
             od_targets = [{k: v.to(device) for k, v in t.items()} for t in od_targets]
             sc_targets = [{k: v.to(device) for k, v in t.items()} for t in sc_targets]
+
             od_outputs, sc_outputs = model(images)
             od_outputs_for_loss = dict(od_outputs)
             od_outputs_for_loss["pred_boxes"] = boxes_cw_to_se(od_outputs["pred_boxes"])
 
-            # box checking debug
-            # boxes = od_outputs["pred_boxes"].reshape(-1, 2)
             loss, sc_loss, od_loss, dc_loss, loss_labels, loss_boxes = loss_fn(od_outputs_for_loss, sc_outputs, od_targets, sc_targets)
 
-            val_loss += loss.item()
-            val_sc_loss += sc_loss.item()
-            val_od_loss += od_loss.item()
-            val_dc_loss += dc_loss.item()
-            val_label_loss += loss_labels.item()
-            val_box_loss += loss_boxes.item()
-
+            paired_loss = zip(["loss","od_loss","sc_loss","dc_loss","label_loss","box_loss"],
+                [loss, od_loss, sc_loss, dc_loss, loss_labels, loss_boxes])
+            for key, val in paired_loss:
+                metrics[key] += val.item()
+                
             batch_size = images.size(0)
-            L = sc_outputs["pred_logits"].shape[1]
-            val_sc_cube_total += batch_size * L
-            val_sc_vessel_total += batch_size
 
-            correct, total = od_inference(od_outputs, od_targets, batch_size)
-            val_od_correct += correct
-            val_od_total += total
-
-            sc_metrics = sc_inference(sc_outputs, sc_targets)
-
-            val_sc_cube_joint += sc_metrics["cube_joint_correct"]
-            val_sc_cube_sten  += sc_metrics["cube_sten_correct"]
-            val_sc_cube_plaq  += sc_metrics["cube_plaq_correct"]
-            val_sc_vessel_sten  += sc_metrics["vessel_sten_correct"]
-
-            for i in range(3):
-                val_sten_correct[i] += sc_metrics["cube_sten_per_class"][i]
-                val_sten_total[i]   += sc_metrics["cube_sten_per_class_total"][i]
-
-            for i in range(4):
-                val_plaq_correct[i] += sc_metrics["cube_plaq_per_class"][i]
-                val_plaq_total[i]   += sc_metrics["cube_plaq_per_class_total"][i]
+            od_inference(od_outputs, od_targets, batch_size, cms)
+            
+            sc_inference(sc_outputs, sc_targets, cms)
 
             val_bar.set_postfix(loss=f"{loss.item():.4f}")
+    
+    accuracies(metrics, cms)
 
-    val_loss /= len(eval_loader)
-    val_sc_loss /= len(eval_loader)
-    val_od_loss /= len(eval_loader)
-    val_dc_loss /= len(eval_loader)
-    val_label_loss /= len(eval_loader)
-    val_box_loss /= len(eval_loader)
+    for key in ["loss","od_loss","sc_loss","dc_loss","label_loss","box_loss"]:
+        metrics[key] /= len(eval_loader)
 
-    val_od_acc = val_od_correct / val_od_total if val_od_total > 0 else 0.0
-
-    val_sc_cube_joint /= val_sc_cube_total
-    val_sc_cube_sten  /= val_sc_cube_total
-    val_sc_cube_plaq  /= val_sc_cube_total
-    val_sc_vessel_sten /= val_sc_vessel_total
-
-    val_sten_per_class_acc = [
-        val_sten_correct[i] / val_sten_total[i] if val_sten_total[i] > 0 else 0.0
-        for i in range(3)
-    ]
-
-    val_plaq_per_class_acc = [
-        val_plaq_correct[i] / val_plaq_total[i] if val_plaq_total[i] > 0 else 0.0
-        for i in range(4)
-    ]
-    return (val_loss, val_od_loss, val_dc_loss, val_sc_loss, val_label_loss, val_box_loss,
-            val_sc_cube_joint, val_sc_cube_sten, val_sc_cube_plaq, val_sc_vessel_sten, val_od_acc, val_sten_per_class_acc, val_plaq_per_class_acc)
+    return metrics, cms

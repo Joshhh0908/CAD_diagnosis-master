@@ -7,17 +7,15 @@ from torch.utils import data
 from torch.utils.data import DataLoader
 
 from architecture import spatio_temporal_semantic_learning
-from config import opt
 import functions as funcs
 import optimization as opt_fn
 import augmentation as aug
-from config import opt as default_opt
 
 
 class sc_net_framework:
 
     def __init__(self, pattern='pre_training', state_dict_root=None, cfg=None):
-        self.opt = cfg if cfg is not None else default_opt  # use passed config or default
+        self.opt = cfg
 
         if pattern == "pre_training":
             self.model_pattern = "training"
@@ -78,7 +76,8 @@ class sc_net_framework:
             eos_coef=self.opt.data_params["eos_coef"],
             length=self.opt.net_params["input_shape"][0],
             step=self.opt.sc_params["_3d_cube_selection"][-1],
-            sig_weight=self.opt.data_params["sig_weight"]
+            sig_weight=self.opt.data_params["sig_weight"], #this one is for od, class 4,5,6
+            sc_weights=self.opt.sc_params["sc_weights"]
         )
 
     def get_dataloader(self):
