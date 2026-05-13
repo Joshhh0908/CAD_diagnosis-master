@@ -20,3 +20,16 @@ Traceback (most recent call last):
 AttributeError: 'numpy.ndarray' object has no attribute 'unique'
 2026-05-05 17:05:41,617 Starting training — save_path=model_weight_10_reduced_delta_fixed_sc_gt lr=3e-06 device=cuda:1
 2026-05-05 17:05:43,743   [DIAG e001] bg=0.124 max_lesion=0.242
+2026-05-05 17:22:48,477 Crash at epoch 1
+Traceback (most recent call last):
+  File "/home/joshua/CAD_diagnosis-master/train_32x25x8_weight_10.py", line 351, in train
+    val_sc_cube_joint, val_sc_cube_sten, val_sc_cube_plaq, val_sc_vessel_sten, val_od_acc, val_sten_per_class_acc, val_plaq_per_class_acc) = eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs)
+  File "/home/joshua/CAD_diagnosis-master/train_32x25x8_weight_10.py", line 213, in eval_epoch
+    sc_metrics = sc_inference(sc_outputs, sc_targets)
+  File "/home/joshua/CAD_diagnosis-master/train_32x25x8_weight_10.py", line 79, in sc_inference
+    sc_targets = od2sc_targets(targets, 32)
+  File "/home/joshua/CAD_diagnosis-master/optimization.py", line 113, in od2sc_targets
+    device = box_data['boxes'].device
+KeyError: 'boxes'
+2026-05-13 11:34:44,431 Starting training — save_path=model_weight_10_reduced_delta_fixed_sc_gt lr=3e-06 device=cuda:1
+2026-05-13 11:34:46,167   [DIAG e001] bg=0.137 max_lesion=0.203
