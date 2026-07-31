@@ -1,0 +1,7 @@
+{
+    "model_name": "newest",
+    "num_epochs": 80,
+    "lr": 3e-06,
+    "device": "cuda:0",
+    "optimizer": "AdamW"
+}

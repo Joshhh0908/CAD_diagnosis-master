@@ -52,8 +52,8 @@ class object_detection_loss(nn.Module):
         # loss_giou = 1 - torch.diag(funcs.generalized_box_iou(funcs.box_cxcywh_to_xyxy(src_boxes),
         #                                                     funcs.box_cxcywh_to_xyxy(target_boxes)))
         loss_giou = 1 - torch.diag(funcs.generalized_box_iou_1d(src_boxes, target_boxes))
-        # NEED TO ADD HYPERPARAMETER WEIGHTS OF 5 AND 2 ACCORDING TO PAPER
-        return loss_bbox.sum() / num_boxes + loss_giou.sum() / num_boxes
+        # NEED TO ADD WEIGHTS OF 5 AND 2 ACCORDING TO PAPER
+        return (loss_bbox.sum() / num_boxes)*3 + (loss_giou.sum() / num_boxes)
 
     def _get_src_permutation_idx(self, indices):
 
@@ -82,7 +82,7 @@ class object_detection_loss(nn.Module):
             total_loss = loss_labels  # no box loss
             return total_loss, loss_labels, zero
 
-        loss_boxes = self.loss_boxes(outputs, targets, indices, num_boxes)
+        loss_boxes = self.loss_boxes(outputs, targets, indices, num_boxes) *0.5
         
         return loss_labels + loss_boxes, loss_labels, loss_boxes
 
@@ -233,6 +233,6 @@ class spatio_temporal_contrast_loss(nn.Module):
 
         ret_loss = dc
         ret_loss = ret_loss + od
-        ret_loss = ret_loss + 2*sc
+        ret_loss = ret_loss + sc
         
         return ret_loss, sc, od, dc, loss_labels, loss_boxes

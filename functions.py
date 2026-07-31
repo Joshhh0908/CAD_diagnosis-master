@@ -1,11 +1,14 @@
+import ast
 import os
 import subprocess
 import time
 import datetime
 import pickle
+from matplotlib import pyplot as plt
 import numpy as np
 from packaging import version
 from collections import defaultdict, deque
+import pandas as pd
 from scipy.optimize import linear_sum_assignment
 from typing import Optional, List
 import csv
@@ -584,21 +587,8 @@ def boxes_cw_to_se(boxes):
     end   = boxes[..., 0] + boxes[..., 1] / 2.0
     return torch.stack((start, end), dim=-1)
 
-def log_and_write(model, optimizer, log, best_val_od_acc, save_path, epoch, num_epochs, train_metrics, val_metrics, cms):
+def log_and_write(log, log_path, epoch, num_epochs, train_metrics, val_metrics):
     
-    epoch_path = f"{save_path}_epoch{epoch+1:03d}.pth"
-
-    torch.save({
-        'epoch': epoch + 1,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'train_loss': train_metrics["loss"],
-        'val_loss': val_metrics["loss"],
-    }, epoch_path)
-
-    cm_path = f"{save_path}_epoch{epoch+1:03d}_cms.pth"
-    torch.save(cms, cm_path)
-
     epoch_str = f"Epoch {epoch+1:03d}/{num_epochs} | "
 
     for key in train_metrics:
@@ -611,15 +601,9 @@ def log_and_write(model, optimizer, log, best_val_od_acc, save_path, epoch, num_
         else:
             epoch_str += f"  val_{key}: {val:.4f} | "
             
-    val_od_acc = val_metrics["od_acc"]
-    if val_od_acc > best_val_od_acc:
-        epoch_str += "*"
-        torch.save(model.state_dict(), f"{save_path}_best.pth")
-        log.info(f"  new best val_od_acc={val_od_acc:.4f}, saved {save_path}_best.pth")
-
     log.info(epoch_str)
+    csv_path = os.path.join(os.path.dirname(log_path), "results.csv")
 
-    csv_path = f"{save_path}_metrics.csv"
     if not os.path.exists(csv_path):
         with open(csv_path, mode='w', newline='') as f:
             writer = csv.writer(f)
@@ -638,3 +622,304 @@ def log_and_write(model, optimizer, log, best_val_od_acc, save_path, epoch, num_
         for key in val_metrics.keys():
             values.append(val_metrics[key])
         writer.writerow(values)
+
+def save_model(model, optimizer, checkpoints_dir, epoch, train_metrics, val_metrics):
+    
+    epoch_path = os.path.join(
+        checkpoints_dir,
+        f"epoch_{epoch+1:03d}.pth"
+    )
+    
+    torch.save({
+        'epoch': epoch + 1,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'train_loss': train_metrics["loss"],
+        'val_loss': val_metrics["loss"],
+    }, epoch_path)
+
+CMS_LABELS = {
+    3: ["Normal", "Non-Significant", "Significant"],
+    4: ["None", "Calcified", "Non-Calcified", "Mixed"],
+    7: ["None", "NS + NC", "NS + M", "NS + C", "S + NC", "S + M", "S + C"]
+}
+
+def save_cms(cms, cm_dir, epoch):
+
+    epoch_dir = os.path.join(cm_dir, f"epoch_{epoch+1:03d}")
+    os.makedirs(epoch_dir, exist_ok=True)
+
+    cm_path = os.path.join(epoch_dir, "cms.pth")
+    torch.save(cms, cm_path)
+
+    cms_to_plot = ["od_vessel_sten_cm", "sc_vessel_sten_cm", "od_and_sc_vessel_sten_cm"]
+    for key in cms_to_plot:
+        cm = cms[key]
+        save_path = os.path.join(epoch_dir, f"{key}.png")
+        labels = CMS_LABELS[cm.shape[0]]
+        plot_cm(cm=cm, title=key, labels=labels, save_path=save_path)
+
+def plot_cm(cm, title, labels, save_path):
+    cm = cm.detach().cpu().numpy()
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
+
+    # titles + labels
+    ax.set_title(title, fontsize=20, pad=10)
+    ax.set_xlabel("Predicted label", fontsize=16)
+    ax.set_ylabel("True label", fontsize=16)
+
+    # ticks
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, fontsize=13)
+    ax.set_yticklabels(labels, fontsize=13)
+    plt.setp(ax.get_xticklabels(), rotation=0)
+
+    # text annotations
+    threshold = cm.max() / 2
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            color = "white" if cm[i, j] > threshold else "#08306B"
+            ax.text(
+                j, i,
+                f"{cm[i, j]}",
+                ha="center", va="center",
+                fontsize=15, color=color
+            )
+
+    fig.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def parse_list_column(series):
+    return series.apply(ast.literal_eval)
+
+
+def plot_curves(csv_path, curves_dir):
+    os.makedirs(curves_dir, exist_ok=True)
+    df = pd.read_csv(csv_path)
+
+    # -----------------------------
+    # PARSE LIST COLUMNS
+    # -----------------------------
+    list_columns = [
+        "val_od_vessel_sten_per_class_recall",
+        "val_sc_cube_sten_per_class_recall",
+        "val_sc_cube_plaq_per_class_recall"
+    ]
+
+    for col in list_columns:
+        if col in df.columns:
+            df[col] = parse_list_column(df[col])
+
+    # expand per-class
+    od_per_class = None
+    sc_sten_per_class = None
+    sc_plaq_per_class = None
+
+    if "val_od_vessel_sten_per_class_recall" in df.columns:
+        od_per_class = pd.DataFrame(
+            df["val_od_vessel_sten_per_class_recall"].tolist(),
+            columns=["Normal", "NS", "Significant"]
+        )
+
+    if "val_sc_cube_sten_per_class_recall" in df.columns:
+        sc_sten_per_class = pd.DataFrame(
+            df["val_sc_cube_sten_per_class_recall"].tolist(),
+            columns=["Normal", "NS", "Significant"]
+        )
+
+    if "val_sc_cube_plaq_per_class_recall" in df.columns:
+        sc_plaq_per_class = pd.DataFrame(
+            df["val_sc_cube_plaq_per_class_recall"].tolist(),
+            columns=["Background", "Calcified", "Noncalcified", "Mixed"]
+        )
+
+    # ============================================================
+    # 1. TRAIN LOSS
+    # ============================================================
+    plt.figure(figsize=(12, 7))
+
+    for col in [
+        "train_loss",
+        "train_od_loss",
+        "train_sc_loss",
+        "train_dc_loss",
+        "train_label_loss",
+        "train_box_loss"
+    ]:
+        if col in df.columns:
+            plt.plot(df["epoch"], df[col], label=col)
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training Losses")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(curves_dir, "train_losses.png"), dpi=300)
+    plt.close()
+
+    # ============================================================
+    # 2. VALIDATION LOSS
+    # ============================================================
+    plt.figure(figsize=(12, 7))
+
+    for col in [
+        "val_loss",
+        "val_od_loss",
+        "val_sc_loss",
+        "val_dc_loss",
+        "val_label_loss",
+        "val_box_loss"
+    ]:
+        if col in df.columns:
+            plt.plot(df["epoch"], df[col], label=col)
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Validation Losses")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(curves_dir, "validation_losses.png"), dpi=300)
+    plt.close()
+
+    # ============================================================
+    # 3. LOSS VS ACCURACY (PRIMARY VIEW)
+    # ============================================================
+    if "val_od_vessel_sten_overall_acc" in df.columns:
+        fig, ax1 = plt.subplots(figsize=(12, 7))
+
+        ax1.plot(df["epoch"], df["train_loss"], label="train_loss")
+        ax1.plot(df["epoch"], df["val_loss"], label="val_loss")
+        ax1.set_xlabel("Epoch")
+        ax1.set_ylabel("Loss")
+        ax1.grid(True)
+
+        ax2 = ax1.twinx()
+
+        for col in [
+            "val_od_vessel_sten_overall_acc",
+            "val_sc_vessel_sten_overall_acc",
+            "val_sc_cube_sten_overall_acc",
+            "val_sc_cube_plaq_overall_acc"
+        ]:
+            if col in df.columns:
+                ax2.plot(df["epoch"], df[col], linestyle="--", label=col)
+
+        ax2.set_ylabel("Accuracy")
+        ax2.set_ylim(0, 1)
+
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc="center right")
+
+        plt.title("Loss vs Accuracy")
+        plt.tight_layout()
+        plt.savefig(os.path.join(curves_dir, "loss_vs_accuracy.png"), dpi=300)
+        plt.close()
+
+    # ============================================================
+    # 4. OD VESSEL ACCURACY (PRIMARY + PER-CLASS RECALL)
+    # ============================================================
+    if od_per_class is not None:
+        plt.figure(figsize=(12, 7))
+
+        if "val_od_vessel_sten_overall_acc" in df.columns:
+            plt.plot(df["epoch"], df["val_od_vessel_sten_overall_acc"],
+                     linewidth=3, label="Overall Accuracy")
+
+        for col in od_per_class.columns:
+            plt.plot(df["epoch"], od_per_class[col],
+                     linestyle="--", label=col)
+
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy / Recall")
+        plt.title("OD Vessel Stenosis Performance")
+        plt.ylim(0, 1)
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(os.path.join(curves_dir, "od_vessel_accuracy.png"), dpi=300)
+        plt.close()
+
+# ============================================================
+# 5. SC STENOSIS ACCURACY (FIXED)
+# ============================================================
+        if sc_sten_per_class is not None:
+            plt.figure(figsize=(12, 7))
+
+            # -----------------------
+            # OVERALL METRICS
+            # -----------------------
+            if "val_sc_vessel_sten_overall_acc" in df.columns:
+                plt.plot(
+                    df["epoch"],
+                    df["val_sc_vessel_sten_overall_acc"],
+                    linewidth=3,
+                    label="Vessel Overall Accuracy"
+                )
+
+            if "val_sc_cube_sten_overall_acc" in df.columns:
+                plt.plot(
+                    df["epoch"],
+                    df["val_sc_cube_sten_overall_acc"],
+                    linewidth=3,
+                    label="Cube Overall Accuracy"
+                )
+
+            # -----------------------
+            # VESSEL-LEVEL PER CLASS
+            # -----------------------
+            if "val_sc_vessel_sten_per_class_recall" in df.columns:
+                sc_vessel_per_class = pd.DataFrame(
+                    df["val_sc_vessel_sten_per_class_recall"].tolist(),
+                    columns=["Normal", "NS", "Significant"]
+                )
+
+                for col in sc_vessel_per_class.columns:
+                    plt.plot(
+                        df["epoch"],
+                        sc_vessel_per_class[col],
+                        linestyle="--",
+                        label=f"Vessel {col}"
+                    )
+
+            plt.xlabel("Epoch")
+            plt.ylabel("Accuracy / Recall")
+            plt.title("SC Stenosis Performance (Vessel + Cube Breakdown)")
+            plt.ylim(0, 1)
+            plt.legend(ncol=2)
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(os.path.join(curves_dir, "sc_stenosis_accuracy.png"), dpi=300)
+            plt.close()
+
+    # ============================================================
+    # 6. SC PLAQUE ACCURACY
+    # ============================================================
+    if sc_plaq_per_class is not None:
+        plt.figure(figsize=(12, 7))
+
+        if "val_sc_cube_plaq_overall_acc" in df.columns:
+            plt.plot(df["epoch"], df["val_sc_cube_plaq_overall_acc"],
+                     linewidth=3, label="Overall Accuracy")
+
+        for col in sc_plaq_per_class.columns:
+            plt.plot(df["epoch"], sc_plaq_per_class[col],
+                     linestyle="--", label=col)
+
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy / Recall")
+        plt.title("SC Plaque Performance")
+        plt.ylim(0, 1)
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(os.path.join(curves_dir, "sc_plaque_accuracy.png"), dpi=300)
+        plt.close()
+

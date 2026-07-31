@@ -8,7 +8,7 @@ class DefaultConfig(object):
         "train_ratio": 0.8,
         "window_lw": [300, 900],
         "batch_size": 2,
-        "sig_weight": 5
+        "sig_weight": 2
     }
     net_params = {
         "input_shape": [256, 64, 64],
@@ -25,7 +25,7 @@ class DefaultConfig(object):
         "temporal_embedding_dim": [864, 512],
         "temporal_transfromer_param": [8, 4],
         "temporal_class_dim": [512, 128],
-        "sc_weights": [1.0, 3.0, 1.0, 1.0, 5.0, 5.0, 5.0] #this one is for sc, class 0-3 are background/stenosis level 1-3, class 4-6 are plaque type
+        "sc_weights": [0.2, 1.5, 1.5, 1.5, 5.0, 5.0, 5.0] #this one is for sc, class 0-3 are background/stenosis level 1-3, class 4-6 are plaque type
     }
     od_params = {
         "spatial_conv_levels" : 4,

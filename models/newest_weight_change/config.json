@@ -1,0 +1,7 @@
+{
+    "model_name": "newest_weight_change",
+    "num_epochs": 80,
+    "lr": 3e-06,
+    "device": "cuda:1",
+    "optimizer": "AdamW"
+}

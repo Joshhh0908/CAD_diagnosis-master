@@ -1,0 +1,7 @@
+{
+    "model_name": "model_NS_weight_2_S_od_5",
+    "num_epochs": 80,
+    "lr": 3e-06,
+    "device": "cuda:1",
+    "optimizer": "AdamW"
+}

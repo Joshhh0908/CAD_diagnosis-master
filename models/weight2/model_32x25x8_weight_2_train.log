@@ -1,2 +1,0 @@
-2026-04-30 19:17:51,382 Starting training — save_path=model_32x25x8_weight_2 lr=3e-06 device=cuda:1
-2026-04-30 19:17:53,495   [DIAG e001] bg=0.134 max_lesion=0.214

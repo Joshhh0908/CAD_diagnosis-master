@@ -1,2 +1,0 @@
-2026-05-13 17:16:19,900 Starting training — save_path=model_weight_5_reduced_delta_fixed_sc_gt lr=3e-06 device=cuda:0
-2026-05-13 17:16:21,734   [DIAG e001] bg=0.133 max_lesion=0.210

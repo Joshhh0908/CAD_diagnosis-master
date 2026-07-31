@@ -1,0 +1,11 @@
+2026-05-15 18:37:48,200 Starting training — save_path=model_latest lr=3e-06 device=cuda:0
+2026-05-15 18:37:51,125   [DIAG e001] bg=0.177 max_lesion=0.215
+2026-05-15 19:18:07,060 Crash at epoch 1
+Traceback (most recent call last):
+  File "/home/joshua/CAD_diagnosis-master/train.py", line 113, in train
+    val_metrics, cms = eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs)
+  File "/home/joshua/CAD_diagnosis-master/eval.py", line 224, in eval_epoch
+    joint_inference(sc_pred, sc_scores, od_pred, od_scores, gt_vessel, cms)
+  File "/home/joshua/CAD_diagnosis-master/eval.py", line 117, in joint_inference
+    cms["joint_vessel_sten_cm"] += torch.bincount(
+KeyError: 'joint_vessel_sten_cm'

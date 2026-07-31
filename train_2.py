@@ -3,13 +3,27 @@ import logging
 from framework import sc_net_framework
 from tqdm import tqdm
 from config_2 import opt
-from functions import boxes_cw_to_se, log_and_write
+from functions import boxes_cw_to_se, log_and_write, plot_curves, save_cms, save_model
 from eval import eval_epoch
 import traceback
+import os
+import json
 
-def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
+def train(num_epochs=200, lr=1e-5, device='cuda:1', model_name='model_58x40x8'):
+    
+    base_dir = os.path.join("models", model_name)
+
+    checkpoints_dir = os.path.join(base_dir, "checkpoints")
+    results_dir = os.path.join(base_dir, "results")
+    cm_dir = os.path.join(results_dir, "confusion_matrices")
+    curves_dir = os.path.join(results_dir, "curves")
+
+    os.makedirs(checkpoints_dir, exist_ok=True)
+    os.makedirs(cm_dir, exist_ok=True)
+    os.makedirs(curves_dir, exist_ok=True)
+
     # set up log file
-    log_path = f"{save_path}_train.log"
+    log_path = os.path.join(results_dir, "log.txt")    
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s %(message)s',
@@ -19,7 +33,7 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
         ]
     )
     log = logging.getLogger()
-    log.info(f"Starting training — save_path={save_path} lr={lr} device={device}")
+    log.info(f"Starting training — save_path={log_path} lr={lr} device={device}")
 
     fw = sc_net_framework(pattern='fine_tuning', cfg=opt)
     model = fw.model.to(device)
@@ -28,12 +42,25 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
     eval_loader  = fw.dataLoader_eval
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
- 
+    
+    config = {
+        "model_name": model_name,
+        "num_epochs": num_epochs,
+        "lr": lr,
+        "device": device,
+        "optimizer": "AdamW"
+    }
+
+    with open(os.path.join(base_dir, "config.json"), "w") as f:
+        json.dump(config, f, indent=4)
+
     print(f"Device: {device}")
     print(f"Train batches: {len(train_loader)} | Val batches: {len(eval_loader)}")
     print(f"Starting training for {num_epochs} epochs\n")
     
-    best_val_od_acc = 0.0
+    best_od_acc = (0.0, 0)
+    best_sc_acc = (0.0, 0)
+    best_od_and_sc_acc = (0.0, 0)
 
     for epoch in range(num_epochs):
         try:
@@ -113,10 +140,20 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             val_metrics, cms = eval_epoch(model, loss_fn, eval_loader, device, epoch, num_epochs)
             
             # ----------------SAVING STUFF----------------
-            log_and_write(model, optimizer, log, best_val_od_acc, save_path, epoch, num_epochs, train_metrics, val_metrics, cms)
-            val_od_acc = val_metrics["od_acc"]
-            best_val_od_acc = max(best_val_od_acc, val_od_acc)
+            save_model(model, optimizer, checkpoints_dir, epoch, train_metrics, val_metrics)
+            log_and_write(log, log_path, epoch, num_epochs, train_metrics, val_metrics)
+            save_cms(cms, cm_dir, epoch)
 
+            od_acc = val_metrics["od_vessel_sten_overall_acc"]
+            sc_acc = val_metrics["sc_vessel_sten_overall_acc"]
+            od_and_sc_acc = val_metrics["od_and_sc_vessel_sten_overall_acc"]
+            if od_acc > best_od_acc[0]:
+                best_od_acc = od_acc, epoch+1
+            if sc_acc > best_sc_acc[0]:
+                best_sc_acc = sc_acc, epoch+1
+            if od_and_sc_acc > best_od_and_sc_acc[0]:
+                best_od_and_sc_acc = od_and_sc_acc, epoch+1
+            
         except Exception as e:
             log.exception(f"Crash at epoch {epoch+1}")
             traceback.print_exc()
@@ -127,5 +164,14 @@ def train(num_epochs=200, lr=1e-5, device='cuda:1', save_path='model_58x40x8'):
             }, "crash_dump.pt")
             raise e
         
+    plot_curves(
+        csv_path=os.path.join(results_dir, "results.csv"),
+        curves_dir=curves_dir
+    )
+
+    log.info(f"best od acc: {best_od_acc[0]}, epoch: {best_od_acc[1]}")
+    log.info(f"best sc acc: {best_sc_acc[0]}, epoch: {best_sc_acc[1]}")
+    log.info(f"best od_and_sc acc: {best_od_and_sc_acc[0]}, epoch: {best_od_and_sc_acc[1]}")
+
 if __name__ == '__main__':
-    train(lr=3e-6, num_epochs=80, device='cuda:1', save_path='model_weight_10_new_eval_format')
+    train(lr=3e-6, num_epochs=80, device='cuda:1', model_name='newest_weight_change')

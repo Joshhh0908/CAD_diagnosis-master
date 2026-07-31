@@ -1,0 +1,7 @@
+{
+    "model_name": "delta_1_sc_1",
+    "num_epochs": 80,
+    "lr": 3e-06,
+    "device": "cuda:0",
+    "optimizer": "AdamW"
+}
